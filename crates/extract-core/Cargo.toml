@@ -1,0 +1,20 @@
+[package]
+name = "extract-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Tokenizer, chunking, and source-grounded extraction core"
+
+[dependencies]
+regex.workspace = true
+thiserror.workspace = true
+unicode-general-category.workspace = true
+unicode-script.workspace = true
+unicode-segmentation.workspace = true
+uuid.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+indexmap.workspace = true

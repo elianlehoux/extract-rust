@@ -1,0 +1,27 @@
+[
+  {
+    "text": "Alan Turing was an English mathematician and computer scientist who worked at Bletchley Park.",
+    "extractions": [
+      {
+        "extraction_class": "person",
+        "extraction_text": "Alan Turing",
+        "attributes": {
+          "role": "mathematician and computer scientist",
+          "workplace": "Bletchley Park"
+        }
+      }
+    ]
+  },
+  {
+    "text": "Grace Hopper was an American computer scientist and United States Navy rear admiral who pioneered modern software development.",
+    "extractions": [
+      {
+        "extraction_class": "person",
+        "extraction_text": "Grace Hopper",
+        "attributes": {
+          "role": "computer scientist and US Navy rear admiral"
+        }
+      }
+    ]
+  }
+]

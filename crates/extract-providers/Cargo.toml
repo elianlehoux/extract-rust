@@ -1,0 +1,16 @@
+[package]
+name = "extract-providers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "HTTP LLM providers for extract-core (Ollama, Gemini, OpenAI)"
+
+[dependencies]
+extract-core = { path = "../extract-core" }
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+ureq.workspace = true

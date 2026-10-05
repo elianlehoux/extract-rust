@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = ["crates/extract-core", "crates/extract-providers", "crates/extract-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.80"
+repository = "https://github.com/elianlehoux/extract-rust"
+
+[workspace.dependencies]
+regex = "1.11"
+thiserror = "2"
+unicode-general-category = "1"
+unicode-script = "0.5"
+unicode-segmentation = "1.12"
+uuid = { version = "1", features = ["v4"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+serde_yaml = "0.9"
+indexmap = { version = "2", features = ["serde"] }
+ureq = { version = "2.12", features = ["json"] }
+clap = { version = "4", features = ["derive", "env"] }

@@ -1,0 +1,19 @@
+[package]
+name = "extract-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "CLI for source-grounded LLM extraction"
+
+[[bin]]
+name = "extract"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+extract-core = { path = "../extract-core" }
+extract-providers = { path = "../extract-providers" }
+serde.workspace = true
+serde_json.workspace = true
