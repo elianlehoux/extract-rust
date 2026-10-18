@@ -1,6 +1,7 @@
 //! Sentence-aware chunking so each piece fits `max_char_buffer`.
 
 use std::fmt;
+use std::sync::Arc;
 
 use regex::Regex;
 use thiserror::Error;
@@ -32,14 +33,23 @@ pub enum ChunkingError {
 }
 
 /// A chunk of a document, stored as a token interval plus source document.
+///
+/// The document is shared (`Arc`) between all chunks of the same text: cloning
+/// it per chunk copied the full text and token list each time, which made
+/// memory and time grow quadratically with document length.
 #[derive(Debug, Clone)]
 pub struct TextChunk {
     pub token_interval: TokenInterval,
-    pub document: Option<Document>,
+    pub document: Option<Arc<Document>>,
 }
 
 impl TextChunk {
     pub fn new(token_interval: TokenInterval, document: Option<Document>) -> Self {
+        Self::new_shared(token_interval, document.map(Arc::new))
+    }
+
+    /// Build a chunk that shares an already reference-counted document.
+    pub fn new_shared(token_interval: TokenInterval, document: Option<Arc<Document>>) -> Self {
         Self {
             token_interval,
             document,
@@ -253,7 +263,7 @@ pub struct ChunkIterator {
     max_char_buffer: i32,
     curr_token_pos: usize,
     broken_sentence: bool,
-    document: Document,
+    document: Arc<Document>,
 }
 
 impl ChunkIterator {
@@ -299,7 +309,7 @@ impl ChunkIterator {
             max_char_buffer,
             curr_token_pos: 0,
             broken_sentence: false,
-            document,
+            document: Arc::new(document),
         })
     }
 
@@ -360,7 +370,10 @@ impl Iterator for ChunkIterator {
         if self.tokens_exceed_buffer(curr_chunk) {
             self.curr_token_pos = (sentence.start_index + 1) as usize;
             self.broken_sentence = curr_chunk.end_index < sentence.end_index;
-            return Some(TextChunk::new(curr_chunk, Some(self.document.clone())));
+            return Some(TextChunk::new_shared(
+                curr_chunk,
+                Some(Arc::clone(&self.document)),
+            ));
         }
 
         let mut start_of_new_line: i32 = -1;
@@ -376,7 +389,10 @@ impl Iterator for ChunkIterator {
                 }
                 self.curr_token_pos = curr_chunk.end_index as usize;
                 self.broken_sentence = true;
-                return Some(TextChunk::new(curr_chunk, Some(self.document.clone())));
+                return Some(TextChunk::new_shared(
+                    curr_chunk,
+                    Some(Arc::clone(&self.document)),
+                ));
             } else {
                 curr_chunk = test_chunk;
             }
@@ -390,13 +406,19 @@ impl Iterator for ChunkIterator {
                     create_token_interval(curr_chunk.start_index, next_sentence.end_index).ok()?;
                 if self.tokens_exceed_buffer(test_chunk) {
                     self.curr_token_pos = curr_chunk.end_index as usize;
-                    return Some(TextChunk::new(curr_chunk, Some(self.document.clone())));
+                    return Some(TextChunk::new_shared(
+                        curr_chunk,
+                        Some(Arc::clone(&self.document)),
+                    ));
                 }
                 curr_chunk = test_chunk;
             }
         }
 
-        Some(TextChunk::new(curr_chunk, Some(self.document.clone())))
+        Some(TextChunk::new_shared(
+            curr_chunk,
+            Some(Arc::clone(&self.document)),
+        ))
     }
 }
 
@@ -715,5 +737,18 @@ mod tests {
             })
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    #[test]
+    fn chunks_share_one_document() {
+        let text = "One sentence here. ".repeat(200);
+        let chunks: Vec<TextChunk> = ChunkIterator::from_str(&text, 50, &RegexTokenizer, None)
+            .unwrap()
+            .collect();
+        assert!(chunks.len() > 10);
+        let first = chunks[0].document.as_ref().unwrap();
+        for c in &chunks {
+            assert!(Arc::ptr_eq(first, c.document.as_ref().unwrap()));
+        }
     }
 }
