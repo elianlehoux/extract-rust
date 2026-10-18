@@ -75,7 +75,10 @@ pub fn handle_alignment_report(
         return Ok(());
     }
     if level == PromptValidationLevel::Error {
-        let failed: Vec<_> = issues.iter().filter(|i| i.kind == IssueKind::Failed).collect();
+        let failed: Vec<_> = issues
+            .iter()
+            .filter(|i| i.kind == IssueKind::Failed)
+            .collect();
         if !failed.is_empty() {
             return Err(Error::PromptAlignment(format!(
                 "Prompt alignment validation failed: {} extraction(s) could not be aligned (e.g., {})",

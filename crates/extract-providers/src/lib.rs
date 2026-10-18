@@ -95,14 +95,12 @@ where
         return Ok(Vec::new());
     }
     if prompts.len() == 1 || max_workers <= 1 {
-        return prompts
-            .iter()
-            .map(|p| f(p).map(|o| vec![o]))
-            .collect();
+        return prompts.iter().map(|p| f(p).map(|o| vec![o])).collect();
     }
     let workers = max_workers.min(prompts.len());
-    let results: Vec<std::sync::Mutex<Option<Result<ScoredOutput, Error>>>> =
-        (0..prompts.len()).map(|_| std::sync::Mutex::new(None)).collect();
+    let results: Vec<std::sync::Mutex<Option<Result<ScoredOutput, Error>>>> = (0..prompts.len())
+        .map(|_| std::sync::Mutex::new(None))
+        .collect();
     let next = std::sync::atomic::AtomicUsize::new(0);
     std::thread::scope(|scope| {
         for _ in 0..workers {

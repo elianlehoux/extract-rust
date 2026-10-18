@@ -74,9 +74,9 @@ impl OllamaLanguageModel {
         let url = format!("{}{path}", self.base_url);
         let req = self.headers(self.agent.post(&url));
         match req.send_json(payload) {
-            Ok(resp) => resp.into_json().map_err(|e| {
-                Error::Inference(format!("Ollama returned invalid JSON: {e}"))
-            }),
+            Ok(resp) => resp
+                .into_json()
+                .map_err(|e| Error::Inference(format!("Ollama returned invalid JSON: {e}"))),
             Err(ureq::Error::Status(code, resp)) => {
                 let body = resp.into_string().unwrap_or_default();
                 if code == 404 {
@@ -171,9 +171,7 @@ pub(crate) fn extract_chat_text(body: &Value) -> Result<String, Error> {
     {
         return Ok(s.to_string());
     }
-    if body.get("thinking").is_some()
-        || body.pointer("/message/thinking").is_some()
-    {
+    if body.get("thinking").is_some() || body.pointer("/message/thinking").is_some() {
         return Err(Error::Inference(
             "Ollama returned an empty chat response with only a reasoning trace.".into(),
         ));
@@ -197,7 +195,10 @@ mod tests {
     #[test]
     fn generate_rejects_thinking_only() {
         let v = json!({"thinking": "hmm"});
-        assert!(extract_generate_text(&v).unwrap_err().to_string().contains("thinking"));
+        assert!(extract_generate_text(&v)
+            .unwrap_err()
+            .to_string()
+            .contains("thinking"));
     }
 
     #[test]
@@ -269,7 +270,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let out = model.infer(&[ "hello".into() ]).unwrap();
+        let out = model.infer(&["hello".into()]).unwrap();
         assert!(out[0][0].output.as_ref().unwrap().contains("Ada"));
         server.join().unwrap();
     }

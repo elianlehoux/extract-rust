@@ -6,10 +6,8 @@ use serde_json::{Map, Value};
 use thiserror::Error;
 
 use crate::format::{FormatError, FormatHandler};
-use crate::tokenizer::{TokenInterval, TokenizedText, Tokenizer, RegexTokenizer};
-use crate::types::{
-    AlignmentStatus, AttributeValue, CharInterval, Extraction, FormatType,
-};
+use crate::tokenizer::{RegexTokenizer, TokenInterval, TokenizedText, Tokenizer};
+use crate::types::{AlignmentStatus, AttributeValue, CharInterval, Extraction, FormatType};
 
 pub const DEFAULT_INDEX_SUFFIX: &str = "_index";
 pub const DEFAULT_DELIM: &str = "\u{241F}";
@@ -588,10 +586,7 @@ pub fn accept_lcs_match(
 pub fn normalize_token(token: &str) -> String {
     let token = token.to_lowercase();
     let chars: Vec<char> = token.chars().collect();
-    if chars.len() > 3
-        && token.ends_with('s')
-        && !token.ends_with("ss")
-    {
+    if chars.len() > 3 && token.ends_with('s') && !token.ends_with("ss") {
         chars[..chars.len() - 1].iter().collect()
     } else {
         token
@@ -622,8 +617,10 @@ fn lcs_fuzzy_align_extraction(
     if extraction_tokens.is_empty() {
         return None;
     }
-    let extraction_tokens_norm: Vec<String> =
-        extraction_tokens.iter().map(|t| normalize_token(t)).collect();
+    let extraction_tokens_norm: Vec<String> = extraction_tokens
+        .iter()
+        .map(|t| normalize_token(t))
+        .collect();
     let spans = best_lcs_spans(source_tokens_norm, &extraction_tokens_norm);
     let mut ks: Vec<i32> = spans.keys().copied().collect();
     ks.sort_by(|a, b| b.cmp(a));
@@ -667,8 +664,10 @@ fn fuzzy_align_extraction(
     tokenizer_impl: &dyn Tokenizer,
 ) -> Option<Extraction> {
     let extraction_tokens = tokenize_with_lowercase(&extraction.extraction_text, tokenizer_impl);
-    let extraction_tokens_norm: Vec<String> =
-        extraction_tokens.iter().map(|t| normalize_token(t)).collect();
+    let extraction_tokens_norm: Vec<String> = extraction_tokens
+        .iter()
+        .map(|t| normalize_token(t))
+        .collect();
     if extraction_tokens.is_empty() {
         return None;
     }
@@ -754,9 +753,7 @@ fn count_tokens(tokens: &[String]) -> HashMap<String, usize> {
 }
 
 fn intersection_total(a: &HashMap<String, usize>, b: &HashMap<String, usize>) -> usize {
-    a.iter()
-        .map(|(k, va)| va.min(b.get(k).unwrap_or(&0)))
-        .sum()
+    a.iter().map(|(k, va)| va.min(b.get(k).unwrap_or(&0))).sum()
 }
 
 fn find_token_occurrences(source: &[String], extraction: &[String]) -> Vec<usize> {
@@ -814,10 +811,7 @@ fn select_monotonic_matches(
         let mut candidates = Vec::new();
         for &start in occurrences {
             let pred = best_ending_at_or_before(&frontier, start as i32);
-            let weight = length as i32
-                + pred
-                    .map(|i| frontier[i].weight)
-                    .unwrap_or(0);
+            let weight = length as i32 + pred.map(|i| frontier[i].weight).unwrap_or(0);
             let parent = pred.map(|i| frontier[i].node);
             nodes.push(ChainNode {
                 extraction_index,
@@ -839,7 +833,8 @@ fn select_monotonic_matches(
                 Ok(i) | Err(i) => i,
             };
             let mut dominated_end = low;
-            while dominated_end < frontier.len() && frontier[dominated_end].weight <= candidate.weight
+            while dominated_end < frontier.len()
+                && frontier[dominated_end].weight <= candidate.weight
             {
                 dominated_end += 1;
             }
@@ -986,7 +981,9 @@ fn find_longest_match(
         bestj -= 1;
         bestsize += 1;
     }
-    while besti + bestsize < ahi && bestj + bestsize < bhi && a[besti + bestsize] == b[bestj + bestsize]
+    while besti + bestsize < ahi
+        && bestj + bestsize < bhi
+        && a[besti + bestsize] == b[bestj + bestsize]
     {
         bestsize += 1;
     }
@@ -1066,51 +1063,85 @@ mod tests {
         ];
         for (source, extraction, expect) in cases {
             let r = best_lcs_span(&s(source), &s(extraction));
-            assert_eq!((r.matches, r.start, r.end), *expect, "{source:?} {extraction:?}");
+            assert_eq!(
+                (r.matches, r.start, r.end),
+                *expect,
+                "{source:?} {extraction:?}"
+            );
         }
     }
 
     #[test]
     fn accept_lcs_gate() {
         assert!(accept_lcs_match(
-            LcsSpan { matches: 3, start: 0, end: 2 },
+            LcsSpan {
+                matches: 3,
+                start: 0,
+                end: 2
+            },
             3,
             0.75,
             1.0 / 3.0
         ));
         assert!(accept_lcs_match(
-            LcsSpan { matches: 3, start: 0, end: 8 },
+            LcsSpan {
+                matches: 3,
+                start: 0,
+                end: 8
+            },
             3,
             0.75,
             1.0 / 3.0
         ));
         assert!(!accept_lcs_match(
-            LcsSpan { matches: 3, start: 0, end: 9 },
+            LcsSpan {
+                matches: 3,
+                start: 0,
+                end: 9
+            },
             3,
             0.75,
             1.0 / 3.0
         ));
         assert!(!accept_lcs_match(
-            LcsSpan { matches: 2, start: 0, end: 2 },
+            LcsSpan {
+                matches: 2,
+                start: 0,
+                end: 2
+            },
             3,
             0.75,
             1.0 / 3.0
         ));
         assert!(accept_lcs_match(
-            LcsSpan { matches: 3, start: 0, end: 2 },
+            LcsSpan {
+                matches: 3,
+                start: 0,
+                end: 2
+            },
             4,
             0.75,
             1.0 / 3.0
         ));
         assert!(!accept_lcs_match(
-            LcsSpan { matches: 0, start: -1, end: -1 },
+            LcsSpan {
+                matches: 0,
+                start: -1,
+                end: -1
+            },
             3,
             0.75,
             1.0 / 3.0
         ));
     }
 
-    fn run_fuzzy(source: &str, extraction_text: &str, algorithm: &str, token_offset: i32, char_offset: i32) -> Option<Extraction> {
+    fn run_fuzzy(
+        source: &str,
+        extraction_text: &str,
+        algorithm: &str,
+        token_offset: i32,
+        char_offset: i32,
+    ) -> Option<Extraction> {
         let tok = RegexTokenizer;
         let tokenized = tok.tokenize(source);
         let source_tokens: Vec<String> = tokenized
@@ -1180,8 +1211,7 @@ mod tests {
 
     #[test]
     fn lcs_density_rejects_sparse() {
-        let source =
-            "metformin alpha beta gamma delta epsilon zeta hydrochloride eta tablet";
+        let source = "metformin alpha beta gamma delta epsilon zeta hydrochloride eta tablet";
         assert!(run_fuzzy(source, "metformin hydrochloride tablet", "lcs", 0, 0).is_none());
     }
 
@@ -1242,16 +1272,25 @@ mod tests {
     fn repeated_mentions_successive() {
         let source = "Take aspirin in the morning. Take aspirin at night.";
         let first_start = source.find("aspirin").unwrap() as i32;
-        let second_start = source[first_start as usize + 1..]
-            .find("aspirin")
-            .unwrap() as i32
-            + first_start
-            + 1;
+        let second_start =
+            source[first_start as usize + 1..].find("aspirin").unwrap() as i32 + first_start + 1;
         let aligned = align_texts(&["aspirin", "aspirin"], source, "dp");
-        assert_eq!(aligned[0].alignment_status, Some(AlignmentStatus::MatchExact));
-        assert_eq!(aligned[1].alignment_status, Some(AlignmentStatus::MatchExact));
-        assert_eq!(aligned[0].char_interval.unwrap().start_pos, Some(first_start));
-        assert_eq!(aligned[1].char_interval.unwrap().start_pos, Some(second_start));
+        assert_eq!(
+            aligned[0].alignment_status,
+            Some(AlignmentStatus::MatchExact)
+        );
+        assert_eq!(
+            aligned[1].alignment_status,
+            Some(AlignmentStatus::MatchExact)
+        );
+        assert_eq!(
+            aligned[0].char_interval.unwrap().start_pos,
+            Some(first_start)
+        );
+        assert_eq!(
+            aligned[1].char_interval.unwrap().start_pos,
+            Some(second_start)
+        );
     }
 
     #[test]
@@ -1259,8 +1298,14 @@ mod tests {
         let source =
             "alpha beta gamma delta was noted. omega followed. Later, alpha beta gamma delta recurred.";
         let aligned = align_texts(&["omega", "alpha beta gamma delta"], source, "dp");
-        assert_eq!(aligned[0].alignment_status, Some(AlignmentStatus::MatchExact));
-        assert_eq!(aligned[1].alignment_status, Some(AlignmentStatus::MatchExact));
+        assert_eq!(
+            aligned[0].alignment_status,
+            Some(AlignmentStatus::MatchExact)
+        );
+        assert_eq!(
+            aligned[1].alignment_status,
+            Some(AlignmentStatus::MatchExact)
+        );
         assert_eq!(
             aligned[0].char_interval.unwrap().start_pos,
             Some(source.find("omega").unwrap() as i32)
@@ -1276,20 +1321,32 @@ mod tests {
         let source =
             "alpha beta gamma delta was noted. omega followed. Later, alpha beta gamma delta recurred.";
         let aligned = align_texts(&["omega", "alpha beta gamma delta"], source, "difflib");
-        assert_eq!(aligned[1].alignment_status, Some(AlignmentStatus::MatchExact));
+        assert_eq!(
+            aligned[1].alignment_status,
+            Some(AlignmentStatus::MatchExact)
+        );
         assert_eq!(
             aligned[1].char_interval.unwrap().start_pos,
             Some(source.find("alpha").unwrap() as i32)
         );
-        assert_eq!(aligned[0].alignment_status, Some(AlignmentStatus::MatchFuzzy));
+        assert_eq!(
+            aligned[0].alignment_status,
+            Some(AlignmentStatus::MatchFuzzy)
+        );
     }
 
     #[test]
     fn duplicate_single_occurrence() {
         let source = "Only aspirin appears here.";
         let aligned = align_texts(&["aspirin", "aspirin"], source, "dp");
-        assert_eq!(aligned[0].alignment_status, Some(AlignmentStatus::MatchExact));
-        assert_eq!(aligned[1].alignment_status, Some(AlignmentStatus::MatchFuzzy));
+        assert_eq!(
+            aligned[0].alignment_status,
+            Some(AlignmentStatus::MatchExact)
+        );
+        assert_eq!(
+            aligned[1].alignment_status,
+            Some(AlignmentStatus::MatchFuzzy)
+        );
         assert_eq!(
             aligned[0].char_interval.unwrap().start_pos,
             aligned[1].char_interval.unwrap().start_pos
@@ -1304,12 +1361,18 @@ mod tests {
             source,
             "dp",
         );
-        assert_eq!(aligned[0].alignment_status, Some(AlignmentStatus::MatchExact));
+        assert_eq!(
+            aligned[0].alignment_status,
+            Some(AlignmentStatus::MatchExact)
+        );
         assert_eq!(
             aligned[0].char_interval.unwrap().start_pos,
             Some(source.find("heart").unwrap() as i32)
         );
-        assert_eq!(aligned[1].alignment_status, Some(AlignmentStatus::MatchLesser));
+        assert_eq!(
+            aligned[1].alignment_status,
+            Some(AlignmentStatus::MatchLesser)
+        );
         assert_eq!(
             aligned[1].char_interval.unwrap().start_pos,
             Some(source.find("severe").unwrap() as i32)
@@ -1345,7 +1408,9 @@ mod tests {
                 options,
             )
             .unwrap_err();
-        assert!(err.to_string().contains("Invalid exact_alignment_algorithm"));
+        assert!(err
+            .to_string()
+            .contains("Invalid exact_alignment_algorithm"));
     }
 
     #[test]
@@ -1378,7 +1443,8 @@ mod tests {
 
     #[test]
     fn resolver_json_fence() {
-        let resolver = Resolver::from_legacy(true, FormatType::Json, Some(DEFAULT_INDEX_SUFFIX.into()));
+        let resolver =
+            Resolver::from_legacy(true, FormatType::Json, Some(DEFAULT_INDEX_SUFFIX.into()));
         let input = r#"```json
 {
   "extractions": [
@@ -1396,7 +1462,8 @@ mod tests {
 
     #[test]
     fn resolver_yaml_fence() {
-        let resolver = Resolver::from_legacy(true, FormatType::Yaml, Some(DEFAULT_INDEX_SUFFIX.into()));
+        let resolver =
+            Resolver::from_legacy(true, FormatType::Yaml, Some(DEFAULT_INDEX_SUFFIX.into()));
         let input = "```yaml\nextractions:\n  - medication: Naprosyn\n    medication_index: 4\n  - duration: for one month\n    duration_index: 10\n```";
         let xs = resolver.resolve(input, false).unwrap();
         assert_eq!(xs[0].extraction_text, "Naprosyn");
@@ -1413,13 +1480,17 @@ mod tests {
             let ci = e.char_interval.unwrap();
             let start = ci.start_pos.unwrap() as usize;
             let end = ci.end_pos.unwrap() as usize;
-            assert_eq!(source[start..end].to_lowercase(), e.extraction_text.to_lowercase());
+            assert_eq!(
+                source[start..end].to_lowercase(),
+                e.extraction_text.to_lowercase()
+            );
         }
     }
 
     #[test]
     fn resolver_integer_extraction() {
-        let resolver = Resolver::from_legacy(true, FormatType::Json, Some(DEFAULT_INDEX_SUFFIX.into()));
+        let resolver =
+            Resolver::from_legacy(true, FormatType::Json, Some(DEFAULT_INDEX_SUFFIX.into()));
         let input = r#"```json
 {"extractions": [{"year": 2006, "year_index": 6}]}
 ```"#;
@@ -1430,14 +1501,16 @@ mod tests {
 
     #[test]
     fn resolver_suppress_empty() {
-        let resolver = Resolver::from_legacy(true, FormatType::Json, Some(DEFAULT_INDEX_SUFFIX.into()));
+        let resolver =
+            Resolver::from_legacy(true, FormatType::Json, Some(DEFAULT_INDEX_SUFFIX.into()));
         assert!(resolver.resolve("```json\n```", true).unwrap().is_empty());
         assert!(resolver.resolve("```json\n```", false).is_err());
     }
 
     #[test]
     fn resolver_schema_error() {
-        let resolver = Resolver::from_legacy(true, FormatType::Json, Some(DEFAULT_INDEX_SUFFIX.into()));
+        let resolver =
+            Resolver::from_legacy(true, FormatType::Json, Some(DEFAULT_INDEX_SUFFIX.into()));
         let input = r#"```json
 {"extractions": [{"entity": "test", "entity_index": 1, "entity_attributes": "bad"}]}
 ```"#;
@@ -1447,7 +1520,8 @@ mod tests {
 
     #[test]
     fn resolver_align_chunk() {
-        let resolver = Resolver::from_legacy(true, FormatType::Json, Some(DEFAULT_INDEX_SUFFIX.into()));
+        let resolver =
+            Resolver::from_legacy(true, FormatType::Json, Some(DEFAULT_INDEX_SUFFIX.into()));
         let text = "This is a sample text with some extractions.";
         let tokenized = tokenize(text);
         let chunk = TokenInterval::new(0, 8);
@@ -1489,7 +1563,8 @@ mod tests {
 
     #[test]
     fn extract_ordered_index_must_be_int() {
-        let resolver = Resolver::from_legacy(false, FormatType::Json, Some(DEFAULT_INDEX_SUFFIX.into()));
+        let resolver =
+            Resolver::from_legacy(false, FormatType::Json, Some(DEFAULT_INDEX_SUFFIX.into()));
         let data = vec![serde_json::from_str::<Map<String, Value>>(
             r#"{"medication":"Aspirin","medication_index":"first"}"#,
         )
@@ -1536,8 +1611,18 @@ Assessment and Plan:
         ];
         let aligned = align_texts(&texts, source, "dp");
         for (e, start) in aligned.iter().zip(expected_starts) {
-            assert_eq!(e.alignment_status, Some(AlignmentStatus::MatchExact), "{}", e.extraction_text);
-            assert_eq!(e.char_interval.unwrap().start_pos, Some(start as i32), "{}", e.extraction_text);
+            assert_eq!(
+                e.alignment_status,
+                Some(AlignmentStatus::MatchExact),
+                "{}",
+                e.extraction_text
+            );
+            assert_eq!(
+                e.char_interval.unwrap().start_pos,
+                Some(start as i32),
+                "{}",
+                e.extraction_text
+            );
         }
     }
 }

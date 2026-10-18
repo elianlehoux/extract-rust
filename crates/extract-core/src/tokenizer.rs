@@ -372,24 +372,15 @@ pub fn find_sentence_range(
                     break;
                 }
             }
-            return Ok(TokenInterval::new(
-                start_token_index,
-                end_index as i32,
-            ));
+            return Ok(TokenInterval::new(start_token_index, end_index as i32));
         }
         if is_sentence_break_after_newline(text, tokens, i) {
-            return Ok(TokenInterval::new(
-                start_token_index,
-                (i + 1) as i32,
-            ));
+            return Ok(TokenInterval::new(start_token_index, (i + 1) as i32));
         }
         i += 1;
     }
 
-    Ok(TokenInterval::new(
-        start_token_index,
-        tokens.len() as i32,
-    ))
+    Ok(TokenInterval::new(start_token_index, tokens.len() as i32))
 }
 
 fn is_end_of_sentence_token(
@@ -654,7 +645,10 @@ mod tests {
     fn regex_only_symbols() {
         let t = tokenize("!!!@#   $$$%");
         assert_eq!(t.tokens.len(), 5);
-        assert!(t.tokens.iter().all(|tok| tok.token_type == TokenType::Punctuation));
+        assert!(t
+            .tokens
+            .iter()
+            .all(|tok| tok.token_type == TokenType::Punctuation));
         assert_eq!(texts_of(&t), vec!["!!!", "@", "#", "$$$", "%"]);
     }
 
@@ -674,7 +668,10 @@ mod tests {
     fn regex_mixed_punctuation() {
         let t = tokenize("?!");
         assert_eq!(t.tokens.len(), 2);
-        assert!(t.tokens.iter().all(|tok| tok.token_type == TokenType::Punctuation));
+        assert!(t
+            .tokens
+            .iter()
+            .all(|tok| tok.token_type == TokenType::Punctuation));
     }
 
     #[test]
@@ -706,7 +703,9 @@ mod tests {
         assert_eq!(t.tokens.len(), 9);
         assert_eq!(t.tokens[5].token_type, TokenType::Punctuation);
         assert_eq!(t.tokens[8].token_type, TokenType::Punctuation);
-        assert!(t.tokens[..5].iter().all(|tok| tok.token_type == TokenType::Word));
+        assert!(t.tokens[..5]
+            .iter()
+            .all(|tok| tok.token_type == TokenType::Word));
     }
 
     #[test]
@@ -913,7 +912,8 @@ mod tests {
 
     #[test]
     fn sentence_range_newline_capital() {
-        let text = "Blood pressure was 160/90 and patient was recommended to\nAtenolol 50 mg daily.";
+        let text =
+            "Blood pressure was 160/90 and patient was recommended to\nAtenolol 50 mg daily.";
         let tok = tokenize(text);
         let iv = find_sentence_range(&tok.text, &tok.tokens, 0, None).unwrap();
         assert_eq!(iv, TokenInterval::new(0, 11));
@@ -932,8 +932,13 @@ mod tests {
         let tok = tokenize("Hello world.");
         assert!(find_sentence_range(&tok.text, &tok.tokens, -1, None).is_err());
         assert!(find_sentence_range(&tok.text, &tok.tokens, 999, None).is_err());
-        let err = find_sentence_range("Hello world.", &UnicodeTokenizer.tokenize("Hello world.").tokens, 999, None)
-            .unwrap_err();
+        let err = find_sentence_range(
+            "Hello world.",
+            &UnicodeTokenizer.tokenize("Hello world.").tokens,
+            999,
+            None,
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("Total tokens: 3"));
     }
 

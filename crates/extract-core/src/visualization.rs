@@ -505,7 +505,9 @@ pub fn build_highlighted_text(
     }
 
     if cursor < indexer.total_chars() {
-        html_parts.push(escape_html(indexer.slice_chars(cursor, indexer.total_chars())));
+        html_parts.push(escape_html(
+            indexer.slice_chars(cursor, indexer.total_chars()),
+        ));
     }
 
     html_parts.join("")
@@ -603,12 +605,8 @@ fn build_visualization_html(
     });
 
     let highlighted_text = build_highlighted_text(text, &sorted_extractions, color_map);
-    let extraction_data = prepare_extraction_data(
-        text,
-        &sorted_extractions,
-        color_map,
-        options.context_chars,
-    );
+    let extraction_data =
+        prepare_extraction_data(text, &sorted_extractions, color_map, options.context_chars);
     let legend_html = if options.show_legend {
         build_legend_html(color_map)
     } else {
@@ -635,7 +633,7 @@ fn build_visualization_html(
     };
 
     format!(
-r#"
+        r#"
 <div class="lx-animated-wrapper">
   <div class="lx-attributes-panel">
     {legend_html}
@@ -724,7 +722,8 @@ r#"
 
     updateDisplay();
   }})();
-</script>"#)
+</script>"#
+    )
 }
 
 #[cfg(test)]
@@ -751,8 +750,7 @@ mod tests {
         let mut color_map = HashMap::new();
         color_map.insert("GREETING".to_string(), "#ff0000".to_string());
 
-        let expected_html =
-            r#"<span class="lx-highlight lx-current-highlight" data-idx="0" style="background-color:#ff0000;">Hello</span> world"#;
+        let expected_html = r#"<span class="lx-highlight lx-current-highlight" data-idx="0" style="background-color:#ff0000;">Hello</span> world"#;
         let actual_html = build_highlighted_text(text, &extractions, &color_map);
         assert_eq!(actual_html, expected_html);
     }
@@ -787,7 +785,7 @@ mod tests {
         let doc = AnnotatedDocument::new()
             .with_text("Patient needs Aspirin.")
             .with_extractions(vec![
-                Extraction::new("MEDICATION", "Aspirin").with_char_interval(14, 21),
+                Extraction::new("MEDICATION", "Aspirin").with_char_interval(14, 21)
             ]);
 
         let med_color = PALETTE[0];
@@ -879,8 +877,14 @@ mod tests {
         let mut attrs = IndexMap::new();
         assert_eq!(format_attributes(Some(&attrs)), "{}");
 
-        attrs.insert("empty_str".to_string(), AttributeValue::String("".to_string()));
-        attrs.insert("null_str".to_string(), AttributeValue::String("null".to_string()));
+        attrs.insert(
+            "empty_str".to_string(),
+            AttributeValue::String("".to_string()),
+        );
+        attrs.insert(
+            "null_str".to_string(),
+            AttributeValue::String("null".to_string()),
+        );
         attrs.insert("empty_list".to_string(), AttributeValue::Strings(vec![]));
         assert_eq!(format_attributes(Some(&attrs)), "{}");
 
@@ -895,7 +899,9 @@ mod tests {
 
         let formatted = format_attributes(Some(&attrs));
         assert!(formatted.starts_with('{') && formatted.ends_with('}'));
-        assert!(formatted.contains(r#"<span class="lx-attr-key">dosage</span>: <span class="lx-attr-value">10mg</span>"#));
+        assert!(formatted.contains(
+            r#"<span class="lx-attr-key">dosage</span>: <span class="lx-attr-value">10mg</span>"#
+        ));
         assert!(formatted.contains(r#"<span class="lx-attr-key">tags</span>: <span class="lx-attr-value">daily, oral</span>"#));
     }
 
@@ -922,7 +928,7 @@ mod tests {
         let doc = AnnotatedDocument::new()
             .with_text("Alpha Beta")
             .with_extractions(vec![
-                Extraction::new("GREEK", "Alpha").with_char_interval(0, 5),
+                Extraction::new("GREEK", "Alpha").with_char_interval(0, 5)
             ]);
 
         let opts_no_gif = VisualizeOptions::new()
@@ -946,9 +952,8 @@ mod tests {
         let mut extractions = Vec::new();
         for i in 0..12 {
             let class_name = format!("CLASS_{i:02}");
-            extractions.push(
-                Extraction::new(class_name, "val").with_char_interval(i * 5, (i + 1) * 5),
-            );
+            extractions
+                .push(Extraction::new(class_name, "val").with_char_interval(i * 5, (i + 1) * 5));
         }
 
         let color_map = assign_colors_for_extractions(&extractions);

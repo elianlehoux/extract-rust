@@ -140,13 +140,17 @@ mod tests {
 
     #[test]
     fn reads_message_content() {
-        let v = json!({"choices": [{"message": {"content": "{\"ok\":1}"}, "finish_reason": "stop"}]});
+        let v =
+            json!({"choices": [{"message": {"content": "{\"ok\":1}"}, "finish_reason": "stop"}]});
         assert_eq!(extract_openai_text(&v).unwrap(), "{\"ok\":1}");
     }
 
     #[test]
     fn refusal() {
         let v = json!({"choices": [{"message": {"refusal": "nope"}, "finish_reason": "stop"}]});
-        assert!(extract_openai_text(&v).unwrap_err().to_string().contains("refused"));
+        assert!(extract_openai_text(&v)
+            .unwrap_err()
+            .to_string()
+            .contains("refused"));
     }
 }

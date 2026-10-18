@@ -71,7 +71,14 @@ impl GeminiLanguageModel {
             "{DEFAULT_ENDPOINT}/models/{}:generateContent?key={}",
             self.model_id, self.api_key
         );
-        let body = post_with_retry(&self.agent, &url, payload, self.max_retries, self.retry_delay, self.max_retry_delay)?;
+        let body = post_with_retry(
+            &self.agent,
+            &url,
+            payload,
+            self.max_retries,
+            self.retry_delay,
+            self.max_retry_delay,
+        )?;
         let text = extract_gemini_text(&body)?;
         Ok(ScoredOutput::new(text))
     }
@@ -130,7 +137,10 @@ fn post_with_retry(
 }
 
 pub(crate) fn extract_gemini_text(body: &Value) -> Result<String, Error> {
-    if let Some(reason) = body.pointer("/promptFeedback/blockReason").and_then(Value::as_str) {
+    if let Some(reason) = body
+        .pointer("/promptFeedback/blockReason")
+        .and_then(Value::as_str)
+    {
         return Err(Error::Inference(format!(
             "Gemini blocked the prompt ({reason})."
         )));
@@ -173,6 +183,9 @@ mod tests {
     #[test]
     fn blocked_prompt() {
         let v = json!({"promptFeedback": {"blockReason": "SAFETY"}});
-        assert!(extract_gemini_text(&v).unwrap_err().to_string().contains("SAFETY"));
+        assert!(extract_gemini_text(&v)
+            .unwrap_err()
+            .to_string()
+            .contains("SAFETY"));
     }
 }

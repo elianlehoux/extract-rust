@@ -52,9 +52,7 @@ impl Default for AnnotateOptions<'_> {
 }
 
 /// First-pass wins merge of overlapping extractions.
-pub fn merge_non_overlapping_extractions(
-    all_extractions: &[Vec<Extraction>],
-) -> Vec<Extraction> {
+pub fn merge_non_overlapping_extractions(all_extractions: &[Vec<Extraction>]) -> Vec<Extraction> {
     if all_extractions.is_empty() {
         return Vec::new();
     }
@@ -65,7 +63,9 @@ pub fn merge_non_overlapping_extractions(
     for pass in &all_extractions[1..] {
         for extraction in pass {
             let overlaps = extraction.char_interval.is_some()
-                && merged.iter().any(|existing| extractions_overlap(extraction, existing));
+                && merged
+                    .iter()
+                    .any(|existing| extractions_overlap(extraction, existing));
             if !overlaps {
                 merged.push(extraction.clone());
             }
@@ -205,8 +205,7 @@ impl Annotator {
                     ));
                 }
                 let output = scored[0].output.clone().unwrap_or_default();
-                let resolved =
-                    resolver.resolve(&output, options.suppress_parse_errors)?;
+                let resolved = resolver.resolve(&output, options.suppress_parse_errors)?;
                 let chunk_text = chunk.chunk_text()?;
                 let token_offset = chunk.token_interval.start_index;
                 let char_offset = chunk
@@ -264,12 +263,8 @@ impl Annotator {
         let order: Vec<String> = documents.iter().map(|d| d.document_id.clone()).collect();
 
         for _pass in 0..options.extraction_passes {
-            let annotated = self.annotate_single_pass(
-                documents.clone(),
-                model,
-                resolver,
-                options,
-            )?;
+            let annotated =
+                self.annotate_single_pass(documents.clone(), model, resolver, options)?;
             for doc in annotated {
                 let id = doc.document_id_ref().unwrap_or("").to_string();
                 by_pass
@@ -376,7 +371,10 @@ mod tests {
         assert_eq!(xs[0].extraction_class, "patient");
         assert_eq!(xs[0].extraction_text, "Jane Doe");
         assert_eq!(xs[0].alignment_status, Some(AlignmentStatus::MatchExact));
-        assert_eq!(xs[0].char_interval.unwrap(), crate::types::CharInterval::new(8, 16));
+        assert_eq!(
+            xs[0].char_interval.unwrap(),
+            crate::types::CharInterval::new(8, 16)
+        );
         assert_eq!(model.calls[0][0], format!("\n\nQ: {text}\nA: "));
     }
 
@@ -472,8 +470,7 @@ mod tests {
 
     #[test]
     fn context_window_in_prompts() {
-        let text =
-            "Dr. Sarah Johnson is a cardiologist. She specializes in heart surgery.";
+        let text = "Dr. Sarah Johnson is a cardiologist. She specializes in heart surgery.";
         let empty = yaml_out("extractions: []");
         let mut model = ScriptedModel::from_outputs([empty.clone(), empty]);
         let annotator = Annotator::with_defaults(PromptTemplateStructured::new(""));
@@ -489,8 +486,10 @@ mod tests {
             .annotate_text(text, &mut model, &resolver, opts)
             .unwrap();
         assert_eq!(model.calls.len(), 2);
-        assert!(!model.calls[0][0].contains(crate::prompting::ContextAwarePromptBuilder::context_prefix()));
-        assert!(model.calls[1][0].contains(crate::prompting::ContextAwarePromptBuilder::context_prefix()));
+        assert!(!model.calls[0][0]
+            .contains(crate::prompting::ContextAwarePromptBuilder::context_prefix()));
+        assert!(model.calls[1][0]
+            .contains(crate::prompting::ContextAwarePromptBuilder::context_prefix()));
         assert!(model.calls[1][0].contains("cardiologist"));
     }
 

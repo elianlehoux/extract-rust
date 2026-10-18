@@ -60,9 +60,7 @@ where
 ///
 /// Blank lines are skipped.
 /// If `path` is an existing directory, it attempts to load `path/data.jsonl`.
-pub fn load_annotated_documents_jsonl<P: AsRef<Path>>(
-    path: P,
-) -> Result<Vec<AnnotatedDocument>> {
+pub fn load_annotated_documents_jsonl<P: AsRef<Path>>(path: P) -> Result<Vec<AnnotatedDocument>> {
     let path = path.as_ref();
     let file_path = if path.is_dir() {
         path.join("data.jsonl")
@@ -97,7 +95,11 @@ mod tests {
     use std::fs;
 
     fn temp_file_path(suffix: &str) -> std::path::PathBuf {
-        std::env::temp_dir().join(format!("extract_io_test_{}_{}.jsonl", uuid::Uuid::new_v4(), suffix))
+        std::env::temp_dir().join(format!(
+            "extract_io_test_{}_{}.jsonl",
+            uuid::Uuid::new_v4(),
+            suffix
+        ))
     }
 
     #[test]
@@ -105,7 +107,10 @@ mod tests {
         let temp_path = temp_file_path("roundtrip");
 
         let mut attributes = IndexMap::new();
-        attributes.insert("key".to_string(), crate::types::AttributeValue::String("value".to_string()));
+        attributes.insert(
+            "key".to_string(),
+            crate::types::AttributeValue::String("value".to_string()),
+        );
 
         let ext1 = Extraction::new("medication", "aspirin")
             .with_char_interval(29, 36)
@@ -167,7 +172,10 @@ mod tests {
             assert_eq!(loaded_doc.text, orig_doc.text);
             assert_eq!(loaded_doc.document_id_ref(), orig_doc.document_id_ref());
 
-            let loaded_exts = loaded_doc.extractions.as_ref().expect("missing extractions");
+            let loaded_exts = loaded_doc
+                .extractions
+                .as_ref()
+                .expect("missing extractions");
             let orig_exts = orig_doc.extractions.as_ref().expect("missing extractions");
             assert_eq!(loaded_exts.len(), orig_exts.len());
 
@@ -207,7 +215,11 @@ mod tests {
             .lines()
             .map(str::to_string)
             .collect();
-        assert_eq!(lines.len(), 1, "Only the doc with valid document_id should be saved");
+        assert_eq!(
+            lines.len(),
+            1,
+            "Only the doc with valid document_id should be saved"
+        );
 
         let loaded = load_annotated_documents_jsonl(&temp_path).expect("failed to load");
         assert_eq!(loaded.len(), 1);
@@ -264,7 +276,8 @@ mod tests {
 
     #[test]
     fn test_file_not_found() {
-        let non_existent = std::env::temp_dir().join(format!("non_existent_{}.jsonl", uuid::Uuid::new_v4()));
+        let non_existent =
+            std::env::temp_dir().join(format!("non_existent_{}.jsonl", uuid::Uuid::new_v4()));
         let result = load_annotated_documents_jsonl(&non_existent);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::NotFound);
@@ -312,7 +325,8 @@ mod tests {
             .with_document_id("dir_doc_1");
 
         // Save passing directory path
-        save_annotated_documents(std::slice::from_ref(&doc), &temp_dir).expect("failed to save to dir");
+        save_annotated_documents(std::slice::from_ref(&doc), &temp_dir)
+            .expect("failed to save to dir");
         assert!(temp_dir.join("data.jsonl").exists());
 
         // Load passing directory path
@@ -328,8 +342,12 @@ mod tests {
     fn test_into_iterator_support() {
         let temp_path = temp_file_path("into_iter");
 
-        let doc1 = AnnotatedDocument::new().with_text("Doc 1").with_document_id("d1");
-        let doc2 = AnnotatedDocument::new().with_text("Doc 2").with_document_id("d2");
+        let doc1 = AnnotatedDocument::new()
+            .with_text("Doc 1")
+            .with_document_id("d1");
+        let doc2 = AnnotatedDocument::new()
+            .with_text("Doc 2")
+            .with_document_id("d2");
 
         // Pass slice
         save_annotated_documents(&[doc1.clone(), doc2.clone()][..], &temp_path).unwrap();

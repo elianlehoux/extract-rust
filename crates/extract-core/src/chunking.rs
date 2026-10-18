@@ -5,9 +5,7 @@ use std::fmt;
 use regex::Regex;
 use thiserror::Error;
 
-use crate::tokenizer::{
-    find_sentence_range, tokens_text, TokenInterval, TokenizedText, Tokenizer,
-};
+use crate::tokenizer::{find_sentence_range, tokens_text, TokenInterval, TokenizedText, Tokenizer};
 use crate::types::{CharInterval as DataCharInterval, Document};
 
 /// Errors from chunk construction.
@@ -20,7 +18,11 @@ pub enum ChunkingError {
     #[error("document_text must be set to access chunk_text.")]
     MissingDocumentText,
     #[error("Token util returns an empty string unexpectedly. Number of tokens is tokenized_text: {n_tokens}, token_interval is {start} to {end}, which should not lead to empty string.")]
-    EmptyTokenText { n_tokens: usize, start: i32, end: i32 },
+    EmptyTokenText {
+        n_tokens: usize,
+        start: i32,
+        end: i32,
+    },
     #[error("Sanitized text is empty.")]
     EmptySanitized,
     #[error("Either text or document must be provided.")]
@@ -107,7 +109,10 @@ impl PartialEq for TextChunk {
 }
 
 /// Create a token interval, rejecting empty or negative ranges.
-pub fn create_token_interval(start_index: i32, end_index: i32) -> Result<TokenInterval, ChunkingError> {
+pub fn create_token_interval(
+    start_index: i32,
+    end_index: i32,
+) -> Result<TokenInterval, ChunkingError> {
     if start_index < 0 {
         return Err(ChunkingError::NegativeStart { start: start_index });
     }
@@ -235,11 +240,8 @@ impl Iterator for SentenceIterator<'_> {
             None,
         )
         .ok()?;
-        let sentence_range = create_token_interval(
-            self.curr_token_pos as i32,
-            sentence_range.end_index,
-        )
-        .ok()?;
+        let sentence_range =
+            create_token_interval(self.curr_token_pos as i32, sentence_range.end_index).ok()?;
         self.curr_token_pos = sentence_range.end_index as usize;
         Some(sentence_range)
     }
@@ -435,14 +437,10 @@ mod tests {
     fn multi_sentence_chunk() {
         let text = "This is a sentence. This is a longer sentence. Mr. Bond\nasks\nwhy?";
         let tokenized = tokenize(text);
-        let chunks: Vec<_> = ChunkIterator::from_tokenized(
-            tokenized.clone(),
-            50,
-            &RegexTokenizer,
-            None,
-        )
-        .unwrap()
-        .collect();
+        let chunks: Vec<_> =
+            ChunkIterator::from_tokenized(tokenized.clone(), 50, &RegexTokenizer, None)
+                .unwrap()
+                .collect();
         assert_eq!(chunks[0].token_interval, TokenInterval::new(0, 11));
         assert_eq!(
             interval_text(&tokenized, chunks[0].token_interval),
@@ -468,14 +466,10 @@ mod tests {
     fn break_sentence() {
         let text = "This is a sentence. This is a longer sentence. Mr. Bond\nasks\nwhy?";
         let tokenized = tokenize(text);
-        let chunks: Vec<_> = ChunkIterator::from_tokenized(
-            tokenized.clone(),
-            12,
-            &RegexTokenizer,
-            None,
-        )
-        .unwrap()
-        .collect();
+        let chunks: Vec<_> =
+            ChunkIterator::from_tokenized(tokenized.clone(), 12, &RegexTokenizer, None)
+                .unwrap()
+                .collect();
         let texts: Vec<_> = chunks
             .iter()
             .map(|c| interval_text(&tokenized, c.token_interval))
@@ -497,20 +491,22 @@ mod tests {
     fn long_token_own_chunk() {
         let text = "This is a sentence. This is a longer sentence. Mr. Bond\nasks\nwhy?";
         let tokenized = tokenize(text);
-        let chunks: Vec<_> = ChunkIterator::from_tokenized(
-            tokenized.clone(),
-            7,
-            &RegexTokenizer,
-            None,
-        )
-        .unwrap()
-        .collect();
+        let chunks: Vec<_> =
+            ChunkIterator::from_tokenized(tokenized.clone(), 7, &RegexTokenizer, None)
+                .unwrap()
+                .collect();
         assert_eq!(chunks[0].token_interval, TokenInterval::new(0, 2));
-        assert_eq!(interval_text(&tokenized, chunks[0].token_interval), "This is");
+        assert_eq!(
+            interval_text(&tokenized, chunks[0].token_interval),
+            "This is"
+        );
         assert_eq!(chunks[1].token_interval, TokenInterval::new(2, 3));
         assert_eq!(interval_text(&tokenized, chunks[1].token_interval), "a");
         assert_eq!(chunks[2].token_interval, TokenInterval::new(3, 4));
-        assert_eq!(interval_text(&tokenized, chunks[2].token_interval), "sentence");
+        assert_eq!(
+            interval_text(&tokenized, chunks[2].token_interval),
+            "sentence"
+        );
         assert_eq!(chunks[3].token_interval, TokenInterval::new(4, 5));
         assert_eq!(interval_text(&tokenized, chunks[3].token_interval), ".");
         assert_eq!(chunks.len(), 13);
@@ -520,14 +516,9 @@ mod tests {
     fn newline_at_chunk_boundary_no_empty() {
         let text = "First sentence.\nSecond sentence that is longer.\nThird sentence.";
         let tokenized = tokenize(text);
-        let chunks: Vec<_> = ChunkIterator::from_tokenized(
-            tokenized,
-            20,
-            &RegexTokenizer,
-            None,
-        )
-        .unwrap()
-        .collect();
+        let chunks: Vec<_> = ChunkIterator::from_tokenized(tokenized, 20, &RegexTokenizer, None)
+            .unwrap()
+            .collect();
         for c in &chunks {
             assert!(c.token_interval.start_index < c.token_interval.end_index);
         }
@@ -548,13 +539,8 @@ mod tests {
     77 y o woman in NAD with a h/o CAD, DM2, asthma and HTN on altace.",
         );
         let tokenized = tokenize(&text);
-        let mut chunks = ChunkIterator::from_tokenized(
-            tokenized.clone(),
-            200,
-            &RegexTokenizer,
-            None,
-        )
-        .unwrap();
+        let mut chunks =
+            ChunkIterator::from_tokenized(tokenized.clone(), 200, &RegexTokenizer, None).unwrap();
         let chunk = chunks.next().unwrap();
         assert_eq!(
             chunk.token_interval,
@@ -578,13 +564,8 @@ mod tests {
     renal protective effect",
         );
         let tokenized = tokenize(&text);
-        let mut chunks = ChunkIterator::from_tokenized(
-            tokenized.clone(),
-            200,
-            &RegexTokenizer,
-            None,
-        )
-        .unwrap();
+        let mut chunks =
+            ChunkIterator::from_tokenized(tokenized.clone(), 200, &RegexTokenizer, None).unwrap();
         let first = chunks.next().unwrap();
         let expected_first = textwrap_dedent(
             "\
@@ -616,8 +597,7 @@ mod tests {
     #[test]
     fn tokenizer_propagation() {
         let text = "Some text.";
-        let mut chunks =
-            ChunkIterator::from_str(text, 100, &RegexTokenizer, None).unwrap();
+        let mut chunks = ChunkIterator::from_str(text, 100, &RegexTokenizer, None).unwrap();
         let chunk = chunks.next().unwrap();
         assert_eq!(chunk.chunk_text().unwrap(), text);
     }
@@ -665,13 +645,8 @@ mod tests {
         let text = "Example input text.";
         let document = Document::new(text).with_document_id("test_doc_123");
         let tokenized = tokenize(text);
-        let mut chunks = ChunkIterator::from_tokenized(
-            tokenized,
-            7,
-            &RegexTokenizer,
-            Some(document),
-        )
-        .unwrap();
+        let mut chunks =
+            ChunkIterator::from_tokenized(tokenized, 7, &RegexTokenizer, Some(document)).unwrap();
         let chunk = chunks.next().unwrap();
         let expected = "TextChunk(\n  interval=[start_index: 0, end_index: 1],\n  Document ID: test_doc_123,\n  Chunk Text: 'Example'\n)";
         assert_eq!(chunk.to_string(), expected);
@@ -682,37 +657,23 @@ mod tests {
         let ctx = "Some additional context for prompt...";
         let document = Document::new("Sample text.").with_additional_context(ctx);
         let tokenized = tokenize("Sample text.");
-        let mut chunks = ChunkIterator::from_tokenized(
-            tokenized,
-            100,
-            &RegexTokenizer,
-            Some(document),
-        )
-        .unwrap();
+        let mut chunks =
+            ChunkIterator::from_tokenized(tokenized, 100, &RegexTokenizer, Some(document)).unwrap();
         assert_eq!(chunks.next().unwrap().additional_context(), Some(ctx));
 
         let document = Document::new("Sample text.");
         let tokenized = tokenize("Sample text.");
-        let mut chunks = ChunkIterator::from_tokenized(
-            tokenized,
-            100,
-            &RegexTokenizer,
-            Some(document),
-        )
-        .unwrap();
+        let mut chunks =
+            ChunkIterator::from_tokenized(tokenized, 100, &RegexTokenizer, Some(document)).unwrap();
         assert_eq!(chunks.next().unwrap().additional_context(), None);
 
         let text = "Sentence one. Sentence two. Sentence three.";
         let document = Document::new(text).with_additional_context(ctx);
         let tokenized = tokenize(text);
-        let chunks: Vec<_> = ChunkIterator::from_tokenized(
-            tokenized,
-            15,
-            &RegexTokenizer,
-            Some(document),
-        )
-        .unwrap()
-        .collect();
+        let chunks: Vec<_> =
+            ChunkIterator::from_tokenized(tokenized, 15, &RegexTokenizer, Some(document))
+                .unwrap()
+                .collect();
         assert!(chunks.len() > 1);
         assert!(chunks.iter().all(|c| c.additional_context() == Some(ctx)));
     }
