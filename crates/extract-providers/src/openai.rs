@@ -40,10 +40,7 @@ impl OpenAILanguageModel {
         Ok(Self {
             model_id: model_id.into(),
             api_key,
-            base_url: base_url
-                .unwrap_or_else(|| DEFAULT_URL.to_string())
-                .trim_end_matches('/')
-                .to_string(),
+            base_url: resolve_base_url(base_url, env_first(&["OPENAI_BASE_URL"])),
             format_type,
             temperature,
             max_workers: max_workers.max(1),
@@ -102,6 +99,15 @@ impl LanguageModel for OpenAILanguageModel {
     }
 }
 
+/// Explicit `base_url` wins, then `OPENAI_BASE_URL`, then the public API.
+fn resolve_base_url(explicit: Option<String>, from_env: Option<String>) -> String {
+    explicit
+        .or(from_env)
+        .unwrap_or_else(|| DEFAULT_URL.to_string())
+        .trim_end_matches('/')
+        .to_string()
+}
+
 pub(crate) fn extract_openai_text(body: &Value) -> Result<String, Error> {
     let choice = body
         .pointer("/choices/0")
@@ -152,5 +158,45 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("refused"));
+    }
+
+    #[test]
+    fn base_url_precedence() {
+        assert_eq!(resolve_base_url(None, None), DEFAULT_URL);
+        assert_eq!(
+            resolve_base_url(None, Some("http://localhost:8000/v1/".into())),
+            "http://localhost:8000/v1"
+        );
+        assert_eq!(
+            resolve_base_url(Some("http://a/v1".into()), Some("http://b/v1".into())),
+            "http://a/v1"
+        );
+    }
+
+    #[test]
+    fn openai_compatible_server_gets_bearer_and_path() {
+        let (base, server) = crate::test_server::serve_once(
+            200,
+            r#"{"choices":[{"message":{"content":"{\"extractions\":[]}"},"finish_reason":"stop"}]}"#,
+        );
+        let mut m = OpenAILanguageModel::new(
+            "gpt-4o-mini",
+            Some("sk-test".into()),
+            Some(format!("{base}/v1")),
+            FormatType::Json,
+            None,
+            5,
+            1,
+        )
+        .unwrap();
+        m.infer(&["hi".into()]).unwrap();
+        let request = server.join().unwrap();
+        assert!(
+            request.starts_with("POST /v1/chat/completions"),
+            "{request}"
+        );
+        assert!(request
+            .to_ascii_lowercase()
+            .contains("authorization: bearer sk-test"));
     }
 }
