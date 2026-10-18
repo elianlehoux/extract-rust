@@ -117,7 +117,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         extraction_passes: cli.extraction_passes,
         context_window_chars: cli.context_window_chars,
         format_type,
-        fence_output: resolved_kind != Some(ProviderKind::Ollama),
+        fence_output: expects_fences(resolved_kind, format_type),
         prompt_validation_level: PromptValidationLevel::Warning,
         ..ExtractOptions::default()
     };
@@ -146,6 +146,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Ollama's `format: "json"` mode returns raw JSON, so fences are only expected
+/// when that constraint is not active (YAML, or other providers).
+fn expects_fences(kind: Option<ProviderKind>, format_type: FormatType) -> bool {
+    !(kind == Some(ProviderKind::Ollama) && format_type == FormatType::Json)
+}
+
 fn read_input(cli: &Cli) -> Result<String, Box<dyn std::error::Error>> {
     if let Some(path) = &cli.file {
         return Ok(fs::read_to_string(path)?);
@@ -169,4 +175,21 @@ fn write_output(path: &str, json: &str) -> Result<(), Box<dyn std::error::Error>
     }
     fs::write(path, json)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fences_off_only_for_ollama_json() {
+        assert!(!expects_fences(
+            Some(ProviderKind::Ollama),
+            FormatType::Json
+        ));
+        assert!(expects_fences(Some(ProviderKind::Ollama), FormatType::Yaml));
+        assert!(expects_fences(Some(ProviderKind::Gemini), FormatType::Json));
+        assert!(expects_fences(Some(ProviderKind::OpenAI), FormatType::Json));
+        assert!(expects_fences(None, FormatType::Json));
+    }
 }
