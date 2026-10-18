@@ -17,3 +17,10 @@ extract-core = { path = "../extract-core" }
 extract-providers = { path = "../extract-providers" }
 serde.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+regex.workspace = true
+
+[[example]]
+name = "eval"
+test = true

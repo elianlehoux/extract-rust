@@ -1,0 +1,16 @@
+{
+  "prompt": "Extract the METAR groups: station, wind, visibility, clouds, temperature (temperature/dew point) and pressure. Use the exact group from the source.",
+  "examples": [
+    {
+      "text": "METAR SAEZ 181300Z 09010KT 9999 FEW040 21/12 Q1015",
+      "extractions": [
+        {"extraction_class": "station", "extraction_text": "SAEZ"},
+        {"extraction_class": "wind", "extraction_text": "09010KT"},
+        {"extraction_class": "visibility", "extraction_text": "9999"},
+        {"extraction_class": "clouds", "extraction_text": "FEW040"},
+        {"extraction_class": "temperature", "extraction_text": "21/12"},
+        {"extraction_class": "pressure", "extraction_text": "Q1015"}
+      ]
+    }
+  ]
+}
