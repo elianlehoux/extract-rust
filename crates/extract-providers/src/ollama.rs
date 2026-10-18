@@ -95,24 +95,35 @@ impl OllamaLanguageModel {
         if self.is_gpt_oss() && self.format_type == FormatType::Json {
             return self.chat_gpt_oss(prompt);
         }
-        let format = self.format_type.as_str();
-        let payload = json!({
+        let payload = self.generate_payload(prompt);
+        let body = self.post_json("/api/generate", payload)?;
+        let output = extract_generate_text(&body)?;
+        Ok(ScoredOutput::new(output))
+    }
+
+    /// Request body for `/api/generate`.
+    ///
+    /// Ollama's `format` only accepts `"json"` or a JSON Schema, so it is sent
+    /// for JSON output only; YAML relies on the prompt alone. (Upstream
+    /// LangExtract sends `"yaml"`, which Ollama rejects with HTTP 500.)
+    /// `keep_alive` is a top-level field, not a model option.
+    fn generate_payload(&self, prompt: &str) -> Value {
+        let mut payload = json!({
             "model": self.model_id,
             "prompt": prompt,
             "stream": false,
             "raw": false,
             "think": false,
-            "format": format,
             "keep_alive": DEFAULT_KEEP_ALIVE,
             "options": {
                 "temperature": self.temperature,
                 "num_ctx": DEFAULT_NUM_CTX,
-                "keep_alive": DEFAULT_KEEP_ALIVE,
             }
         });
-        let body = self.post_json("/api/generate", payload)?;
-        let output = extract_generate_text(&body)?;
-        Ok(ScoredOutput::new(output))
+        if self.format_type == FormatType::Json {
+            payload["format"] = json!("json");
+        }
+        payload
     }
 
     fn chat_gpt_oss(&self, prompt: &str) -> Result<ScoredOutput, Error> {
@@ -273,5 +284,50 @@ mod tests {
         let out = model.infer(&["hello".into()]).unwrap();
         assert!(out[0][0].output.as_ref().unwrap().contains("Ada"));
         server.join().unwrap();
+    }
+
+    fn model(format_type: FormatType, base: Option<String>) -> OllamaLanguageModel {
+        OllamaLanguageModel::new("gemma2:2b", base, format_type, Some(0.0), Some(5), 1, None)
+            .unwrap()
+    }
+
+    #[test]
+    fn json_payload_sets_format_json() {
+        let p = model(FormatType::Json, None).generate_payload("hi");
+        assert_eq!(p["format"], "json");
+    }
+
+    #[test]
+    fn yaml_payload_omits_format() {
+        let p = model(FormatType::Yaml, None).generate_payload("hi");
+        assert!(p.get("format").is_none(), "{p}");
+    }
+
+    #[test]
+    fn keep_alive_only_at_top_level() {
+        let p = model(FormatType::Json, None).generate_payload("hi");
+        assert_eq!(p["keep_alive"], DEFAULT_KEEP_ALIVE);
+        assert!(p["options"].get("keep_alive").is_none(), "{p}");
+    }
+
+    #[test]
+    fn yaml_request_on_the_wire_has_no_format() {
+        let (base, server) =
+            crate::test_server::serve_once(200, r#"{"response":"extractions: []"}"#);
+        let mut m = model(FormatType::Yaml, Some(base));
+        m.infer(&["hello".into()]).unwrap();
+        let request = server.join().unwrap();
+        let body = &request[request.find("\r\n\r\n").unwrap() + 4..];
+        let v: Value = serde_json::from_str(body).unwrap();
+        assert!(v.get("format").is_none(), "{v}");
+    }
+
+    #[test]
+    fn ollama_sends_no_authorization_without_key() {
+        let (base, server) = crate::test_server::serve_once(200, r#"{"response":"{}"}"#);
+        let mut m = model(FormatType::Json, Some(base));
+        m.infer(&["hello".into()]).unwrap();
+        let request = server.join().unwrap().to_ascii_lowercase();
+        assert!(!request.contains("authorization:"), "{request}");
     }
 }
