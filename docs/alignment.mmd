@@ -1,0 +1,10 @@
+flowchart TD
+    S["Model returns extraction texts<br/>e.g. 'Ada', 'Bob', 'Ada'"] --> T["Tokenize source chunk and each<br/>extraction; lowercase tokens"]
+    T --> X["Exact pass (DP)<br/>find every occurrence of each extraction's tokens;<br/>pick the in-order, non-overlapping set that<br/>covers the most tokens"]
+    X -->|found| M1["match_exact<br/>char offsets from the source tokens"]
+    X -->|not found| L["Block pass<br/>longest common token blocks between source<br/>and all extractions joined by a delimiter"]
+    L -->|whole extraction matched| M1
+    L -->|only a prefix matched| M2["match_lesser"]
+    L -->|nothing| F["Fuzzy pass (LCS)<br/>normalise tokens (lowercase, drop plural -s);<br/>best longest-common-subsequence span"]
+    F -->|"matches ≥ 75% of tokens<br/>and density ≥ 1/3"| M3["match_fuzzy"]
+    F -->|otherwise| N["not grounded<br/>char_interval = null"]

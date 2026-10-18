@@ -1,0 +1,84 @@
+{
+  "extractions": [
+    {
+      "extraction_class": "flight_number",
+      "extraction_text": "AR1302",
+      "char_interval": {
+        "start_pos": 9,
+        "end_pos": 15
+      },
+      "alignment_status": "match_exact",
+      "extraction_index": 1,
+      "group_index": 0,
+      "description": null,
+      "attributes": {}
+    },
+    {
+      "extraction_class": "aircraft",
+      "extraction_text": "Boeing 737-800",
+      "char_interval": {
+        "start_pos": 32,
+        "end_pos": 46
+      },
+      "alignment_status": "match_exact",
+      "extraction_index": 2,
+      "group_index": 1,
+      "description": null,
+      "attributes": {}
+    },
+    {
+      "extraction_class": "aircraft",
+      "extraction_text": "LV-FVM",
+      "char_interval": {
+        "start_pos": 57,
+        "end_pos": 63
+      },
+      "alignment_status": "match_exact",
+      "extraction_index": 3,
+      "group_index": 2,
+      "description": null,
+      "attributes": {}
+    },
+    {
+      "extraction_class": "airport",
+      "extraction_text": "Aeroparque",
+      "char_interval": {
+        "start_pos": 76,
+        "end_pos": 86
+      },
+      "alignment_status": "match_exact",
+      "extraction_index": 4,
+      "group_index": 3,
+      "description": null,
+      "attributes": {}
+    },
+    {
+      "extraction_class": "airport",
+      "extraction_text": "Córdoba",
+      "char_interval": {
+        "start_pos": 93,
+        "end_pos": 100
+      },
+      "alignment_status": "match_exact",
+      "extraction_index": 5,
+      "group_index": 4,
+      "description": null,
+      "attributes": {}
+    },
+    {
+      "extraction_class": "airport",
+      "extraction_text": "Rosario",
+      "char_interval": {
+        "start_pos": 149,
+        "end_pos": 156
+      },
+      "alignment_status": "match_exact",
+      "extraction_index": 6,
+      "group_index": 5,
+      "description": null,
+      "attributes": {}
+    }
+  ],
+  "text": "El vuelo AR1302, operado con un Boeing 737-800 matrícula LV-FVM, despegó de Aeroparque hacia Córdoba. Por niebla en Córdoba, la tripulación desvió a Rosario y aterrizó 40 minutos después. METAR SACO 181100Z 00000KT 0300 FG VV001 09/09 Q1021.\n",
+  "document_id": "doc_b686e7f8"
+}

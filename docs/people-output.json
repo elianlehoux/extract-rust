@@ -1,0 +1,81 @@
+{
+  "extractions": [
+    {
+      "extraction_class": "person",
+      "extraction_text": "Ada Lovelace",
+      "char_interval": {
+        "start_pos": 0,
+        "end_pos": 12
+      },
+      "alignment_status": "match_exact",
+      "extraction_index": 1,
+      "group_index": 0,
+      "description": null,
+      "attributes": {
+        "role": "collaborator with Charles Babbage on the Analytical Engine"
+      }
+    },
+    {
+      "extraction_class": "person",
+      "extraction_text": "Charles Babbage",
+      "char_interval": {
+        "start_pos": 31,
+        "end_pos": 46
+      },
+      "alignment_status": "match_exact",
+      "extraction_index": 2,
+      "group_index": 1,
+      "description": null,
+      "attributes": {
+        "role": "developer of the Analytical Engine"
+      }
+    },
+    {
+      "extraction_class": "person",
+      "extraction_text": "Margaret Hamilton",
+      "char_interval": {
+        "start_pos": 178,
+        "end_pos": 195
+      },
+      "alignment_status": "match_exact",
+      "extraction_index": 3,
+      "group_index": 2,
+      "description": null,
+      "attributes": {
+        "role": "director of software engineering at MIT"
+      }
+    },
+    {
+      "extraction_class": "person",
+      "extraction_text": "Katherine Johnson",
+      "char_interval": {
+        "start_pos": 324,
+        "end_pos": 341
+      },
+      "alignment_status": "match_exact",
+      "extraction_index": 4,
+      "group_index": 3,
+      "description": null,
+      "attributes": {
+        "role": "calculated orbital trajectories at NASA"
+      }
+    },
+    {
+      "extraction_class": "person",
+      "extraction_text": "John Glenn",
+      "char_interval": {
+        "start_pos": 396,
+        "end_pos": 406
+      },
+      "alignment_status": "match_exact",
+      "extraction_index": 5,
+      "group_index": 4,
+      "description": null,
+      "attributes": {
+        "role": "astronaut"
+      }
+    }
+  ],
+  "text": "Ada Lovelace collaborated with Charles Babbage on the Analytical Engine in London. In 1843, she published the first algorithm designed to be processed by a machine. Years later, Margaret Hamilton served as director of software engineering at MIT, leading the team that developed the on-board Apollo flight guidance systems. Katherine Johnson calculated orbital trajectories at NASA for astronaut John Glenn during the Friendship 7 space mission.\n",
+  "document_id": "doc_2d47805d"
+}
