@@ -614,7 +614,7 @@ fn build_visualization_html(
     };
 
     let js_data = serde_json::to_string(&extraction_data).unwrap_or_else(|_| "[]".to_string());
-    let js_data = js_data.replace("</script>", "<\\/script>");
+    let js_data = escape_json_for_script(&js_data);
 
     let first = sorted_extractions[0];
     let (first_start, first_end) = (
@@ -724,6 +724,18 @@ fn build_visualization_html(
   }})();
 </script>"#
     )
+}
+
+/// Make serialized JSON safe to inline inside a `<script>` element.
+///
+/// HTML ends a script at `</script` in any letter case, so escaping only the
+/// lowercase form let `</SCRIPT>` in the source text break out. Escaping every
+/// `<` as `\u003c` is valid JSON (`<` can only appear inside strings) and
+/// also neutralises `<!--`. U+2028/U+2029 are escaped for older JS engines.
+fn escape_json_for_script(json: &str) -> String {
+    json.replace('<', "\\u003c")
+        .replace('\u{2028}', "\\u2028")
+        .replace('\u{2029}', "\\u2029")
 }
 
 #[cfg(test)]
@@ -1006,5 +1018,33 @@ mod tests {
         let doc = AnnotatedDocument::new().with_text("Sample");
         let output = crate::visualize(&doc);
         assert!(output.contains("No valid extractions to animate."));
+    }
+
+    #[test]
+    fn script_escape_is_case_insensitive() {
+        for closing in ["</script>", "</SCRIPT>", "</ScRiPt >", "<!--"] {
+            let text = format!("Dose {closing}<img src=x onerror=alert(1)> Aspirin.");
+            let start = text.find("Aspirin").unwrap() as i32;
+            let doc = AnnotatedDocument::new()
+                .with_text(text.clone())
+                .with_extractions(vec![
+                    Extraction::new("MEDICATION", "Aspirin").with_char_interval(start, start + 7)
+                ]);
+            let html = visualize(&doc).to_ascii_lowercase();
+            // Only the visualizer's own <script> blocks may close.
+            let opens = html.matches("<script").count();
+            let closes = html.matches("</script").count();
+            assert_eq!(opens, closes, "{closing}: {html}");
+            assert!(!html.contains("<img src=x"), "{closing}");
+        }
+    }
+
+    #[test]
+    fn escaped_json_still_parses() {
+        let raw = serde_json::json!({"t": "a </SCRIPT> b \u{2028}"}).to_string();
+        let escaped = escape_json_for_script(&raw);
+        assert!(!escaped.contains('<'));
+        let back: serde_json::Value = serde_json::from_str(&escaped).unwrap();
+        assert_eq!(back["t"], "a </SCRIPT> b \u{2028}");
     }
 }
