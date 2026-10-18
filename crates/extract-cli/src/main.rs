@@ -34,8 +34,10 @@ struct Cli {
     /// Force provider instead of inferring from the model id.
     #[arg(long)]
     provider: Option<String>,
-    /// API key (Gemini/OpenAI). Falls back to GEMINI_API_KEY / OPENAI_API_KEY.
-    #[arg(long, env = "LANGEXTRACT_API_KEY")]
+    /// API key. When omitted, each provider reads its own variable:
+    /// Gemini: GEMINI_API_KEY or LANGEXTRACT_API_KEY; OpenAI: OPENAI_API_KEY;
+    /// Ollama: none.
+    #[arg(long)]
     api_key: Option<String>,
     /// Base URL (Ollama or OpenAI-compatible).
     #[arg(long)]
@@ -191,5 +193,26 @@ mod tests {
         assert!(expects_fences(Some(ProviderKind::Gemini), FormatType::Json));
         assert!(expects_fences(Some(ProviderKind::OpenAI), FormatType::Json));
         assert!(expects_fences(None, FormatType::Json));
+    }
+
+    #[test]
+    fn api_key_flag_does_not_read_env() {
+        // A Gemini key in the environment must not be forwarded to other
+        // providers through the generic --api-key flag.
+        std::env::set_var("LANGEXTRACT_API_KEY", "gemini-secret");
+        let cli = Cli::try_parse_from([
+            "extract",
+            "-m",
+            "gpt-4o-mini",
+            "-p",
+            "x",
+            "-e",
+            "ex.json",
+            "--text",
+            "hi",
+        ])
+        .unwrap();
+        std::env::remove_var("LANGEXTRACT_API_KEY");
+        assert_eq!(cli.api_key, None);
     }
 }

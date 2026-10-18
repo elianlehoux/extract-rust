@@ -11,6 +11,8 @@ use serde_json::{json, Value};
 use crate::{env_first, http_error, infer_parallel};
 
 const DEFAULT_ENDPOINT: &str = "https://generativelanguage.googleapis.com/v1beta";
+/// Environment variables checked for a Gemini key, in order.
+pub const GEMINI_KEY_VARS: [&str; 2] = ["GEMINI_API_KEY", "LANGEXTRACT_API_KEY"];
 const RETRYABLE: [u16; 6] = [408, 429, 500, 502, 503, 504];
 
 pub struct GeminiLanguageModel {
@@ -36,7 +38,7 @@ impl GeminiLanguageModel {
         max_workers: usize,
     ) -> Result<Self, Error> {
         let api_key = api_key
-            .or_else(|| env_first(&["GEMINI_API_KEY", "LANGEXTRACT_API_KEY", "GOOGLE_API_KEY"]))
+            .or_else(|| env_first(&GEMINI_KEY_VARS))
             .ok_or_else(|| {
                 Error::Config(
                     "Gemini models require an API key via --api-key or GEMINI_API_KEY / LANGEXTRACT_API_KEY."
