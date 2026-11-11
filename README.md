@@ -1,8 +1,16 @@
+<div align="center">
+
 # extract-rust
 
+**Pull structured entities out of free text with an LLM, and ground each one to its exact offsets in the source.**
+
 [![CI](https://github.com/elianlehoux/extract-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/elianlehoux/extract-rust/actions/workflows/ci.yml)
+[![Rust](https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
 ![MSRV 1.88](https://img.shields.io/badge/MSRV-1.88-blue)
-![License Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)
+[![License Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
+[![Ollama | Gemini | OpenAI](https://img.shields.io/badge/providers-Ollama%20%7C%20Gemini%20%7C%20OpenAI-555)](#other-providers)
+
+</div>
 
 **Status: in development.** Usable and tested, but the API may still change.
 
@@ -10,7 +18,19 @@
 
 It is an independent port, not an official Google project. LangExtract is Copyright 2025 Google LLC, Apache-2.0; see [NOTICE](NOTICE).
 
-![HTML visualizer on a Spanish flight report](docs/visualizer-flight-report.png)
+<p align="center">
+  <img src="docs/visualizer-flight-report.png" alt="HTML visualizer on a Spanish flight report" width="860"><br>
+  <sub>The built-in HTML visualizer on a Spanish flight report.</sub>
+</p>
+
+## Features
+
+- **Source grounding**: exact and fuzzy alignment of every extraction to character offsets; invented text gets no offsets.
+- **Long documents**: sentence-aware chunking with a context window, parallel workers and multiple extraction passes.
+- **Providers**: Ollama (local), Gemini and OpenAI or OpenAI-compatible servers, behind one `LanguageModel` trait.
+- **CLI and library**: the `extract` binary (JSON or YAML output) and a Rust API.
+- **Review**: a self-contained HTML visualizer and JSONL save/load of annotated documents.
+- **Evaluated**: compared against upstream Python LangExtract on a hand-annotated set (see [Evaluation](#evaluation)).
 
 ## Quickstart
 
