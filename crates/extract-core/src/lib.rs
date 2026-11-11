@@ -21,7 +21,7 @@ pub use error::Error;
 pub use extract::{extract, ExtractInput, ExtractOptions, ExtractResult};
 pub use io::{load_annotated_documents_jsonl, save_annotated_documents};
 pub use tokenizer::{
-    find_sentence_range, tokenize, tokens_text, CharInterval, RegexTokenizer, Token,
-    TokenInterval, TokenType, TokenizedText, Tokenizer, UnicodeTokenizer,
+    find_sentence_range, tokenize, tokens_text, CharInterval, RegexTokenizer, Token, TokenInterval,
+    TokenType, TokenizedText, Tokenizer, UnicodeTokenizer,
 };
 pub use visualization::visualize;

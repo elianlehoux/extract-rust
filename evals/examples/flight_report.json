@@ -1,0 +1,22 @@
+{
+  "prompt": "Extract flight numbers, aircraft (type or registration) and airports, in order of appearance. Use the exact text from the source.",
+  "examples": [
+    {
+      "text": "Flight IB6845 on an Airbus A350-900 departed Madrid for Ezeiza.",
+      "extractions": [
+        {"extraction_class": "flight_number", "extraction_text": "IB6845"},
+        {"extraction_class": "aircraft", "extraction_text": "Airbus A350-900"},
+        {"extraction_class": "airport", "extraction_text": "Madrid"},
+        {"extraction_class": "airport", "extraction_text": "Ezeiza"}
+      ]
+    },
+    {
+      "text": "El Piper PA-28 matrícula LV-ABC aterrizó en Córdoba.",
+      "extractions": [
+        {"extraction_class": "aircraft", "extraction_text": "Piper PA-28"},
+        {"extraction_class": "aircraft", "extraction_text": "LV-ABC"},
+        {"extraction_class": "airport", "extraction_text": "Córdoba"}
+      ]
+    }
+  ]
+}

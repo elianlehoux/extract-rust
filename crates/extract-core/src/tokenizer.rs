@@ -88,6 +88,12 @@ pub struct Token {
     pub token_type: TokenType,
     pub char_interval: CharInterval,
     pub first_token_after_newline: bool,
+    /// Byte span in the original text, filled by the built-in tokenizers.
+    ///
+    /// Offsets exposed to users stay in characters (`char_interval`); this is
+    /// a cache so slicing a token does not rescan the text from the start
+    /// (`char_indices().nth()` is O(n), which made chunking quadratic).
+    pub byte_interval: Option<(usize, usize)>,
 }
 
 impl Token {
@@ -97,6 +103,7 @@ impl Token {
             token_type,
             char_interval: CharInterval::new(0, 0),
             first_token_after_newline: false,
+            byte_interval: None,
         }
     }
 }
@@ -118,11 +125,7 @@ impl TokenizedText {
 
     /// Slice of `text` covered by `token`.
     pub fn token_text(&self, token: &Token) -> &str {
-        slice_chars(
-            &self.text,
-            token.char_interval.start_pos,
-            token.char_interval.end_pos,
-        )
+        token_str(&self.text, token)
     }
 }
 
@@ -169,6 +172,7 @@ impl Tokenizer for RegexTokenizer {
                 token_type: TokenType::Word,
                 char_interval: CharInterval::new(start_pos, end_pos),
                 first_token_after_newline: false,
+                byte_interval: Some((m.start(), end_byte)),
             };
 
             if token_index > 0 {
@@ -208,6 +212,7 @@ impl Tokenizer for UnicodeTokenizer {
         let mut current_script: Option<ScriptKind> = None;
         let mut previous_end: usize = 0;
         let mut char_pos: usize = 0;
+        let char_starts = char_to_byte_table(text);
 
         for grapheme in text.graphemes(true) {
             let grapheme_len = grapheme.chars().count();
@@ -216,7 +221,7 @@ impl Tokenizer for UnicodeTokenizer {
 
             if is_whitespace_grapheme(grapheme) {
                 if let (Some(ty), Some(cs)) = (current_type, current_start) {
-                    emit_token(&mut tokens, text, cs, start, ty, previous_end);
+                    emit_token(&mut tokens, text, &char_starts, cs, start, ty, previous_end);
                     previous_end = start;
                     current_type = None;
                     current_script = None;
@@ -249,7 +254,7 @@ impl Tokenizer for UnicodeTokenizer {
                         TokenType::Number => should_merge = true,
                         TokenType::Punctuation => {
                             if let Some(cs) = current_start {
-                                let last = chars_slice(text, cs, start);
+                                let last = &text[char_starts[cs]..char_starts[start]];
                                 if last == grapheme
                                     || (last.chars().count() >= grapheme.chars().count()
                                         && last.ends_with(grapheme))
@@ -266,7 +271,7 @@ impl Tokenizer for UnicodeTokenizer {
                 // extend current token
             } else {
                 if let (Some(ty), Some(cs)) = (current_type, current_start) {
-                    emit_token(&mut tokens, text, cs, start, ty, previous_end);
+                    emit_token(&mut tokens, text, &char_starts, cs, start, ty, previous_end);
                     previous_end = start;
                 }
                 current_start = Some(start);
@@ -286,7 +291,15 @@ impl Tokenizer for UnicodeTokenizer {
         }
 
         if let (Some(ty), Some(cs)) = (current_type, current_start) {
-            emit_token(&mut tokens, text, cs, char_pos, ty, previous_end);
+            emit_token(
+                &mut tokens,
+                text,
+                &char_starts,
+                cs,
+                char_pos,
+                ty,
+                previous_end,
+            );
         }
 
         TokenizedText {
@@ -324,8 +337,16 @@ pub fn tokens_text(
 
     let start_token = &tokenized_text.tokens[token_interval.start_index as usize];
     let end_token = &tokenized_text.tokens[(token_interval.end_index - 1) as usize];
+    let text = &tokenized_text.text;
+    if let (Some((start_byte, _)), Some((_, end_byte))) =
+        (start_token.byte_interval, end_token.byte_interval)
+    {
+        if let Some(slice) = checked_slice(text, start_byte, end_byte) {
+            return Ok(slice.to_string());
+        }
+    }
     Ok(chars_slice(
-        &tokenized_text.text,
+        text,
         start_token.char_interval.start_pos as usize,
         end_token.char_interval.end_pos as usize,
     )
@@ -350,11 +371,13 @@ pub fn find_sentence_range(
         });
     }
 
-    let default_abbrevs: HashSet<String> = DEFAULT_ABBREVIATIONS
-        .iter()
-        .map(|s| (*s).to_string())
-        .collect();
-    let abbrevs = known_abbreviations.unwrap_or(&default_abbrevs);
+    static DEFAULT_ABBREVS: std::sync::LazyLock<HashSet<String>> = std::sync::LazyLock::new(|| {
+        DEFAULT_ABBREVIATIONS
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect()
+    });
+    let abbrevs = known_abbreviations.unwrap_or(&DEFAULT_ABBREVS);
 
     let mut i = start_token_index as usize;
     while i < tokens.len() {
@@ -372,24 +395,15 @@ pub fn find_sentence_range(
                     break;
                 }
             }
-            return Ok(TokenInterval::new(
-                start_token_index,
-                end_index as i32,
-            ));
+            return Ok(TokenInterval::new(start_token_index, end_index as i32));
         }
         if is_sentence_break_after_newline(text, tokens, i) {
-            return Ok(TokenInterval::new(
-                start_token_index,
-                (i + 1) as i32,
-            ));
+            return Ok(TokenInterval::new(start_token_index, (i + 1) as i32));
         }
         i += 1;
     }
 
-    Ok(TokenInterval::new(
-        start_token_index,
-        tokens.len() as i32,
-    ))
+    Ok(TokenInterval::new(start_token_index, tokens.len() as i32))
 }
 
 fn is_end_of_sentence_token(
@@ -427,9 +441,11 @@ fn is_sentence_break_after_newline(text: &str, tokens: &[Token], current_idx: us
     !next_text.chars().next().is_some_and(char::is_lowercase)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn emit_token(
     tokens: &mut Vec<Token>,
     text: &str,
+    char_starts: &[usize],
     start: usize,
     end: usize,
     token_type: TokenType,
@@ -437,7 +453,7 @@ fn emit_token(
 ) {
     let mut first_after_newline = false;
     if start > previous_end {
-        let gap = chars_slice(text, previous_end, start);
+        let gap = &text[char_starts[previous_end]..char_starts[start]];
         if gap.contains('\n') || gap.contains('\r') {
             first_after_newline = true;
         }
@@ -447,6 +463,7 @@ fn emit_token(
         token_type,
         char_interval: CharInterval::new(start as i32, end as i32),
         first_token_after_newline: first_after_newline,
+        byte_interval: Some((char_starts[start], char_starts[end])),
     });
 }
 
@@ -544,11 +561,29 @@ fn first_scalar(g: &str) -> Option<char> {
 }
 
 fn token_str<'a>(text: &'a str, token: &Token) -> &'a str {
+    if let Some((start, end)) = token.byte_interval {
+        if let Some(slice) = checked_slice(text, start, end) {
+            return slice;
+        }
+    }
     slice_chars(
         text,
         token.char_interval.start_pos,
         token.char_interval.end_pos,
     )
+}
+
+/// `&text[start..end]` when both ends are valid char boundaries.
+fn checked_slice(text: &str, start: usize, end: usize) -> Option<&str> {
+    (start <= end && text.is_char_boundary(start) && text.is_char_boundary(end))
+        .then(|| &text[start..end])
+}
+
+/// Byte offset of every char index, plus `text.len()` at the end.
+fn char_to_byte_table(text: &str) -> Vec<usize> {
+    let mut table: Vec<usize> = text.char_indices().map(|(b, _)| b).collect();
+    table.push(text.len());
+    table
 }
 
 fn chars_slice(text: &str, start: usize, end: usize) -> &str {
@@ -654,7 +689,10 @@ mod tests {
     fn regex_only_symbols() {
         let t = tokenize("!!!@#   $$$%");
         assert_eq!(t.tokens.len(), 5);
-        assert!(t.tokens.iter().all(|tok| tok.token_type == TokenType::Punctuation));
+        assert!(t
+            .tokens
+            .iter()
+            .all(|tok| tok.token_type == TokenType::Punctuation));
         assert_eq!(texts_of(&t), vec!["!!!", "@", "#", "$$$", "%"]);
     }
 
@@ -674,7 +712,10 @@ mod tests {
     fn regex_mixed_punctuation() {
         let t = tokenize("?!");
         assert_eq!(t.tokens.len(), 2);
-        assert!(t.tokens.iter().all(|tok| tok.token_type == TokenType::Punctuation));
+        assert!(t
+            .tokens
+            .iter()
+            .all(|tok| tok.token_type == TokenType::Punctuation));
     }
 
     #[test]
@@ -706,7 +747,9 @@ mod tests {
         assert_eq!(t.tokens.len(), 9);
         assert_eq!(t.tokens[5].token_type, TokenType::Punctuation);
         assert_eq!(t.tokens[8].token_type, TokenType::Punctuation);
-        assert!(t.tokens[..5].iter().all(|tok| tok.token_type == TokenType::Word));
+        assert!(t.tokens[..5]
+            .iter()
+            .all(|tok| tok.token_type == TokenType::Word));
     }
 
     #[test]
@@ -913,7 +956,8 @@ mod tests {
 
     #[test]
     fn sentence_range_newline_capital() {
-        let text = "Blood pressure was 160/90 and patient was recommended to\nAtenolol 50 mg daily.";
+        let text =
+            "Blood pressure was 160/90 and patient was recommended to\nAtenolol 50 mg daily.";
         let tok = tokenize(text);
         let iv = find_sentence_range(&tok.text, &tok.tokens, 0, None).unwrap();
         assert_eq!(iv, TokenInterval::new(0, 11));
@@ -932,8 +976,13 @@ mod tests {
         let tok = tokenize("Hello world.");
         assert!(find_sentence_range(&tok.text, &tok.tokens, -1, None).is_err());
         assert!(find_sentence_range(&tok.text, &tok.tokens, 999, None).is_err());
-        let err = find_sentence_range("Hello world.", &UnicodeTokenizer.tokenize("Hello world.").tokens, 999, None)
-            .unwrap_err();
+        let err = find_sentence_range(
+            "Hello world.",
+            &UnicodeTokenizer.tokenize("Hello world.").tokens,
+            999,
+            None,
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("Total tokens: 3"));
     }
 
@@ -1046,5 +1095,38 @@ mod tests {
                 "whitespace {ws:?} produced tokens"
             );
         }
+    }
+
+    #[test]
+    fn byte_interval_matches_char_interval() {
+        let text = "😀 José Ñáñez voló a Córdoba.\nMr. Bond — 東京 ok!";
+        for tokenized in [
+            RegexTokenizer.tokenize(text),
+            UnicodeTokenizer.tokenize(text),
+        ] {
+            assert!(!tokenized.tokens.is_empty());
+            for t in &tokenized.tokens {
+                let (bs, be) = t.byte_interval.expect("built-in tokenizers set bytes");
+                let by_chars: String = text
+                    .chars()
+                    .skip(t.char_interval.start_pos as usize)
+                    .take((t.char_interval.end_pos - t.char_interval.start_pos) as usize)
+                    .collect();
+                assert_eq!(&text[bs..be], by_chars);
+                assert_eq!(tokenized.token_text(t), by_chars);
+            }
+        }
+    }
+
+    #[test]
+    fn token_text_falls_back_to_chars_without_bytes() {
+        let mut tokenized = RegexTokenizer.tokenize("Ñandú corre.");
+        for t in &mut tokenized.tokens {
+            t.byte_interval = None;
+        }
+        let first = tokenized.tokens[0].clone();
+        assert_eq!(tokenized.token_text(&first), "Ñandú");
+        let all = TokenInterval::new(0, tokenized.tokens.len() as i32);
+        assert_eq!(tokens_text(&tokenized, all).unwrap(), "Ñandú corre.");
     }
 }

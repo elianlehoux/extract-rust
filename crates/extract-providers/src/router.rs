@@ -41,7 +41,14 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
         pattern: Regex::new(r"^gemini").expect("gemini pattern"),
         kind: ProviderKind::Gemini,
     });
-    for p in [r"^gpt-3\.5", r"^gpt-4", r"^gpt4\.", r"^gpt-5", r"^gpt5\.", r"^o[1-9]"] {
+    for p in [
+        r"^gpt-3\.5",
+        r"^gpt-4",
+        r"^gpt4\.",
+        r"^gpt-5",
+        r"^gpt5\.",
+        r"^o[1-9]",
+    ] {
         out.push(Entry {
             pattern: Regex::new(p).expect("openai pattern"),
             kind: ProviderKind::OpenAI,
@@ -102,12 +109,24 @@ mod tests {
 
     #[test]
     fn routes_known_ids() {
-        assert_eq!(resolve_provider("gemini-2.5-flash").unwrap(), ProviderKind::Gemini);
-        assert_eq!(resolve_provider("gpt-4o-mini").unwrap(), ProviderKind::OpenAI);
+        assert_eq!(
+            resolve_provider("gemini-2.5-flash").unwrap(),
+            ProviderKind::Gemini
+        );
+        assert_eq!(
+            resolve_provider("gpt-4o-mini").unwrap(),
+            ProviderKind::OpenAI
+        );
         assert_eq!(resolve_provider("o3-mini").unwrap(), ProviderKind::OpenAI);
         assert_eq!(resolve_provider("gemma2:2b").unwrap(), ProviderKind::Ollama);
-        assert_eq!(resolve_provider("llama3.1:8b").unwrap(), ProviderKind::Ollama);
-        assert_eq!(resolve_provider("gpt-oss:20b").unwrap(), ProviderKind::Ollama);
+        assert_eq!(
+            resolve_provider("llama3.1:8b").unwrap(),
+            ProviderKind::Ollama
+        );
+        assert_eq!(
+            resolve_provider("gpt-oss:20b").unwrap(),
+            ProviderKind::Ollama
+        );
         assert_eq!(
             resolve_provider("meta-llama/Llama-3.2-1B-Instruct").unwrap(),
             ProviderKind::Ollama

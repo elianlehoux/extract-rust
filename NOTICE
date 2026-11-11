@@ -1,0 +1,13 @@
+extract-rust
+Copyright 2026 Elián Lehoux
+
+This product is a Rust port of LangExtract (https://github.com/google/langextract),
+Copyright 2025 Google LLC, licensed under the Apache License, Version 2.0.
+
+The tokenizer, chunking, prompting, format handling, resolver/alignment and
+visualization modules in crates/extract-core, and the provider clients in
+crates/extract-providers, are adapted from the corresponding LangExtract
+Python modules. They were rewritten in Rust and modified; the changes are
+listed in README.md ("What's different from the original").
+
+This project is not affiliated with or endorsed by Google.

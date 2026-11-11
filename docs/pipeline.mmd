@@ -1,0 +1,13 @@
+flowchart LR
+    A["Source text<br/>(or documents)"] --> B["Tokenizer<br/>regex / Unicode"]
+    B --> C["Chunking<br/>sentence-aware,<br/>max_char_buffer"]
+    C --> D["Few-shot prompt<br/>description + examples<br/>+ chunk (Q:/A:)"]
+    D --> E{"Provider"}
+    E -->|local| E1["Ollama"]
+    E -->|API| E2["Gemini"]
+    E -->|API| E3["OpenAI /<br/>compatible"]
+    E1 & E2 & E3 --> F["Parse<br/>JSON / YAML,<br/>fences, think tags"]
+    F --> G["Align to source<br/>1. exact (DP)<br/>2. lesser (partial)<br/>3. fuzzy (LCS)"]
+    G --> H["Merge passes<br/>first pass wins<br/>on overlap"]
+    H --> I["AnnotatedDocument<br/>JSON / JSONL"]
+    H --> J["HTML visualizer"]

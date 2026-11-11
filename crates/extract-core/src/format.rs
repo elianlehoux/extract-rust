@@ -9,8 +9,7 @@ use thiserror::Error;
 use crate::types::{AttributeValue, Extraction, FormatType, ATTRIBUTE_SUFFIX, EXTRACTIONS_KEY};
 
 static FENCE_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"```(?<lang>[A-Za-z0-9_+-]+)?(?:\s*\n)?(?<body>[\s\S]*?)```")
-        .expect("fence regex")
+    Regex::new(r"```(?<lang>[A-Za-z0-9_+-]+)?(?:\s*\n)?(?<body>[\s\S]*?)```").expect("fence regex")
 });
 static THINK_TAG_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?is)<think>[\s\S]*?</think>\s*").expect("think regex"));
@@ -61,11 +60,7 @@ impl FormatHandler {
     pub fn with_wrapper(mut self, use_wrapper: bool, wrapper_key: Option<&str>) -> Self {
         self.use_wrapper = use_wrapper;
         self.wrapper_key = if use_wrapper {
-            Some(
-                wrapper_key
-                    .unwrap_or(EXTRACTIONS_KEY)
-                    .to_string(),
-            )
+            Some(wrapper_key.unwrap_or(EXTRACTIONS_KEY).to_string())
         } else {
             None
         };
@@ -116,7 +111,10 @@ impl FormatHandler {
             .iter()
             .map(|ext| {
                 let mut obj = Map::new();
-                obj.insert(ext.extraction_class.clone(), Value::String(ext.extraction_text.clone()));
+                obj.insert(
+                    ext.extraction_class.clone(),
+                    Value::String(ext.extraction_text.clone()),
+                );
                 let attrs = match &ext.attributes {
                     Some(map) => attributes_to_value(map),
                     None => json!({}),
@@ -141,7 +139,9 @@ impl FormatHandler {
 
         let formatted = match self.format_type {
             FormatType::Yaml => to_yaml(&payload),
-            FormatType::Json => serde_json::to_string_pretty(&payload).unwrap_or_else(|_| payload.to_string()),
+            FormatType::Json => {
+                serde_json::to_string_pretty(&payload).unwrap_or_else(|_| payload.to_string())
+            }
         };
         if self.use_fences {
             self.add_fences(&formatted)
@@ -150,7 +150,11 @@ impl FormatHandler {
         }
     }
 
-    pub fn parse_output(&self, text: &str, strict: bool) -> Result<Vec<Map<String, Value>>, FormatError> {
+    pub fn parse_output(
+        &self,
+        text: &str,
+        strict: bool,
+    ) -> Result<Vec<Map<String, Value>>, FormatError> {
         if text.is_empty() {
             return Err(FormatError::Parse(
                 "Empty or invalid input string.".to_string(),
@@ -296,11 +300,21 @@ impl FormatHandler {
                     "Multiple fenced blocks found. Expected exactly one.".to_string(),
                 ));
             }
-            return Ok(candidates[0].name("body").unwrap().as_str().trim().to_string());
+            return Ok(candidates[0]
+                .name("body")
+                .unwrap()
+                .as_str()
+                .trim()
+                .to_string());
         }
 
         if candidates.len() == 1 {
-            return Ok(candidates[0].name("body").unwrap().as_str().trim().to_string());
+            return Ok(candidates[0]
+                .name("body")
+                .unwrap()
+                .as_str()
+                .trim()
+                .to_string());
         }
         if candidates.len() > 1 {
             return Err(FormatError::Parse(

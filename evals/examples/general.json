@@ -1,0 +1,21 @@
+{
+  "prompt": "Extract people, organizations and locations, in order of appearance. Use the exact text from the source. Do not paraphrase.",
+  "examples": [
+    {
+      "text": "Tim Cook said Apple will hire 500 engineers in Austin.",
+      "extractions": [
+        {"extraction_class": "person", "extraction_text": "Tim Cook"},
+        {"extraction_class": "organization", "extraction_text": "Apple"},
+        {"extraction_class": "location", "extraction_text": "Austin"}
+      ]
+    },
+    {
+      "text": "Gabriela Sabatini visitó la Fundación Favaloro en Rosario.",
+      "extractions": [
+        {"extraction_class": "person", "extraction_text": "Gabriela Sabatini"},
+        {"extraction_class": "organization", "extraction_text": "Fundación Favaloro"},
+        {"extraction_class": "location", "extraction_text": "Rosario"}
+      ]
+    }
+  ]
+}

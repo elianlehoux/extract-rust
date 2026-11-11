@@ -34,8 +34,10 @@ struct Cli {
     /// Force provider instead of inferring from the model id.
     #[arg(long)]
     provider: Option<String>,
-    /// API key (Gemini/OpenAI). Falls back to GEMINI_API_KEY / OPENAI_API_KEY.
-    #[arg(long, env = "LANGEXTRACT_API_KEY")]
+    /// API key. When omitted, each provider reads its own variable:
+    /// Gemini: GEMINI_API_KEY or LANGEXTRACT_API_KEY; OpenAI: OPENAI_API_KEY;
+    /// Ollama: none.
+    #[arg(long)]
     api_key: Option<String>,
     /// Base URL (Ollama or OpenAI-compatible).
     #[arg(long)]
@@ -117,7 +119,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         extraction_passes: cli.extraction_passes,
         context_window_chars: cli.context_window_chars,
         format_type,
-        fence_output: resolved_kind != Some(ProviderKind::Ollama),
+        fence_output: expects_fences(resolved_kind, format_type),
         prompt_validation_level: PromptValidationLevel::Warning,
         ..ExtractOptions::default()
     };
@@ -146,6 +148,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Ollama's `format: "json"` mode returns raw JSON, so fences are only expected
+/// when that constraint is not active (YAML, or other providers).
+fn expects_fences(kind: Option<ProviderKind>, format_type: FormatType) -> bool {
+    !(kind == Some(ProviderKind::Ollama) && format_type == FormatType::Json)
+}
+
 fn read_input(cli: &Cli) -> Result<String, Box<dyn std::error::Error>> {
     if let Some(path) = &cli.file {
         return Ok(fs::read_to_string(path)?);
@@ -169,4 +177,42 @@ fn write_output(path: &str, json: &str) -> Result<(), Box<dyn std::error::Error>
     }
     fs::write(path, json)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fences_off_only_for_ollama_json() {
+        assert!(!expects_fences(
+            Some(ProviderKind::Ollama),
+            FormatType::Json
+        ));
+        assert!(expects_fences(Some(ProviderKind::Ollama), FormatType::Yaml));
+        assert!(expects_fences(Some(ProviderKind::Gemini), FormatType::Json));
+        assert!(expects_fences(Some(ProviderKind::OpenAI), FormatType::Json));
+        assert!(expects_fences(None, FormatType::Json));
+    }
+
+    #[test]
+    fn api_key_flag_does_not_read_env() {
+        // A Gemini key in the environment must not be forwarded to other
+        // providers through the generic --api-key flag.
+        std::env::set_var("LANGEXTRACT_API_KEY", "gemini-secret");
+        let cli = Cli::try_parse_from([
+            "extract",
+            "-m",
+            "gpt-4o-mini",
+            "-p",
+            "x",
+            "-e",
+            "ex.json",
+            "--text",
+            "hi",
+        ])
+        .unwrap();
+        std::env::remove_var("LANGEXTRACT_API_KEY");
+        assert_eq!(cli.api_key, None);
+    }
 }

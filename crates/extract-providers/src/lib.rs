@@ -95,14 +95,12 @@ where
         return Ok(Vec::new());
     }
     if prompts.len() == 1 || max_workers <= 1 {
-        return prompts
-            .iter()
-            .map(|p| f(p).map(|o| vec![o]))
-            .collect();
+        return prompts.iter().map(|p| f(p).map(|o| vec![o])).collect();
     }
     let workers = max_workers.min(prompts.len());
-    let results: Vec<std::sync::Mutex<Option<Result<ScoredOutput, Error>>>> =
-        (0..prompts.len()).map(|_| std::sync::Mutex::new(None)).collect();
+    let results: Vec<std::sync::Mutex<Option<Result<ScoredOutput, Error>>>> = (0..prompts.len())
+        .map(|_| std::sync::Mutex::new(None))
+        .collect();
     let next = std::sync::atomic::AtomicUsize::new(0);
     std::thread::scope(|scope| {
         for _ in 0..workers {
@@ -129,4 +127,60 @@ where
         }
     }
     Ok(out)
+}
+
+/// Minimal one-shot HTTP server for provider tests: answers a single request
+/// with `status` and `body`, and returns the raw request it received.
+#[cfg(test)]
+pub(crate) mod test_server {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread::{self, JoinHandle};
+    use std::time::Duration;
+
+    pub fn serve_once(status: u16, body: &str) -> (String, JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let body = body.to_string();
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut buf = Vec::new();
+            let mut tmp = [0u8; 4096];
+            loop {
+                match stream.read(&mut tmp) {
+                    Ok(0) => break,
+                    Ok(n) => buf.extend_from_slice(&tmp[..n]),
+                    Err(_) => break,
+                }
+                let Some(end) = buf.windows(4).position(|w| w == b"\r\n\r\n") else {
+                    continue;
+                };
+                let header_end = end + 4;
+                let headers = String::from_utf8_lossy(&buf[..header_end]).to_string();
+                let len = headers
+                    .lines()
+                    .find_map(|line| {
+                        let (name, value) = line.split_once(':')?;
+                        name.eq_ignore_ascii_case("content-length")
+                            .then(|| value.trim().parse::<usize>().ok())
+                            .flatten()
+                    })
+                    .unwrap_or(0);
+                if buf.len() >= header_end + len {
+                    break;
+                }
+            }
+            let reason = if status == 200 { "OK" } else { "Error" };
+            let resp = format!(
+                "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream.write_all(resp.as_bytes()).unwrap();
+            String::from_utf8_lossy(&buf).to_string()
+        });
+        (format!("http://{addr}"), handle)
+    }
 }

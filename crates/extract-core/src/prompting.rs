@@ -168,9 +168,7 @@ impl ContextAwarePromptBuilder {
         additional_context: Option<&str>,
     ) -> String {
         let effective = self.build_effective_context(document_id, additional_context);
-        let prompt = self
-            .generator
-            .render(chunk_text, effective.as_deref());
+        let prompt = self.generator.render(chunk_text, effective.as_deref());
         self.update_state(document_id, chunk_text);
         prompt
     }
@@ -317,11 +315,7 @@ mod tests {
         let prompt = builder.build_prompt("Test input text.", "doc1", None);
         assert!(prompt.contains("Test input text."));
         assert!(prompt.contains("Extract entities."));
-        let prompt = builder.build_prompt(
-            "Test input.",
-            "doc1",
-            Some("Important context here."),
-        );
+        let prompt = builder.build_prompt("Test input.", "doc1", Some("Important context here."));
         assert!(prompt.contains("Important context here."));
     }
 

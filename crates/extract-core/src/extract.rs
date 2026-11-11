@@ -9,9 +9,7 @@ use crate::prompt_validation::{
 use crate::prompting::PromptTemplateStructured;
 use crate::resolver::Resolver;
 use crate::tokenizer::Tokenizer;
-use crate::types::{
-    AnnotatedDocument, Document, ExampleData, FormatType, EXTRACTIONS_KEY,
-};
+use crate::types::{AnnotatedDocument, Document, ExampleData, FormatType, EXTRACTIONS_KEY};
 use crate::Error;
 
 /// What to extract from.
@@ -85,8 +83,8 @@ pub fn extract(
         )?;
     }
 
-    let template = PromptTemplateStructured::new(prompt_description)
-        .with_examples(examples.to_vec());
+    let template =
+        PromptTemplateStructured::new(prompt_description).with_examples(examples.to_vec());
     let format_handler = FormatHandler::new()
         .with_format_type(options.format_type)
         .with_wrapper(true, Some(EXTRACTIONS_KEY))

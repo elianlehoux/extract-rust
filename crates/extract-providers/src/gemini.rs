@@ -11,6 +11,8 @@ use serde_json::{json, Value};
 use crate::{env_first, http_error, infer_parallel};
 
 const DEFAULT_ENDPOINT: &str = "https://generativelanguage.googleapis.com/v1beta";
+/// Environment variables checked for a Gemini key, in order.
+pub const GEMINI_KEY_VARS: [&str; 2] = ["GEMINI_API_KEY", "LANGEXTRACT_API_KEY"];
 const RETRYABLE: [u16; 6] = [408, 429, 500, 502, 503, 504];
 
 pub struct GeminiLanguageModel {
@@ -22,6 +24,7 @@ pub struct GeminiLanguageModel {
     max_retries: u32,
     retry_delay: Duration,
     max_retry_delay: Duration,
+    endpoint: String,
     agent: ureq::Agent,
 }
 
@@ -35,7 +38,7 @@ impl GeminiLanguageModel {
         max_workers: usize,
     ) -> Result<Self, Error> {
         let api_key = api_key
-            .or_else(|| env_first(&["GEMINI_API_KEY", "LANGEXTRACT_API_KEY", "GOOGLE_API_KEY"]))
+            .or_else(|| env_first(&GEMINI_KEY_VARS))
             .ok_or_else(|| {
                 Error::Config(
                     "Gemini models require an API key via --api-key or GEMINI_API_KEY / LANGEXTRACT_API_KEY."
@@ -54,8 +57,22 @@ impl GeminiLanguageModel {
             max_retries: 3,
             retry_delay: Duration::from_secs(1),
             max_retry_delay: Duration::from_secs(16),
+            endpoint: DEFAULT_ENDPOINT.to_string(),
             agent,
         })
+    }
+
+    /// Override the REST endpoint (e.g. a proxy or a local mock server).
+    pub fn with_endpoint(mut self, endpoint: impl Into<String>) -> Self {
+        self.endpoint = endpoint.into().trim_end_matches('/').to_string();
+        self
+    }
+
+    /// Override retry behaviour (mainly for tests).
+    pub fn with_retries(mut self, max_retries: u32, retry_delay: Duration) -> Self {
+        self.max_retries = max_retries;
+        self.retry_delay = retry_delay;
+        self
     }
 
     fn generate(&self, prompt: &str) -> Result<ScoredOutput, Error> {
@@ -67,11 +84,18 @@ impl GeminiLanguageModel {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": gen,
         });
-        let url = format!(
-            "{DEFAULT_ENDPOINT}/models/{}:generateContent?key={}",
-            self.model_id, self.api_key
-        );
-        let body = post_with_retry(&self.agent, &url, payload, self.max_retries, self.retry_delay, self.max_retry_delay)?;
+        // The key travels in a header, never in the URL, so it cannot leak
+        // through transport error messages (which include the URL).
+        let url = format!("{}/models/{}:generateContent", self.endpoint, self.model_id);
+        let body = post_with_retry(
+            &self.agent,
+            &url,
+            &self.api_key,
+            payload,
+            self.max_retries,
+            self.retry_delay,
+            self.max_retry_delay,
+        )?;
         let text = extract_gemini_text(&body)?;
         Ok(ScoredOutput::new(text))
     }
@@ -90,6 +114,7 @@ impl LanguageModel for GeminiLanguageModel {
 fn post_with_retry(
     agent: &ureq::Agent,
     url: &str,
+    api_key: &str,
     payload: Value,
     max_retries: u32,
     retry_delay: Duration,
@@ -100,6 +125,7 @@ fn post_with_retry(
         match agent
             .post(url)
             .set("Content-Type", "application/json")
+            .set("x-goog-api-key", api_key)
             .send_json(payload.clone())
         {
             Ok(resp) => {
@@ -114,7 +140,7 @@ fn post_with_retry(
                     delay = (delay * 2).min(max_retry_delay);
                     continue;
                 }
-                return Err(http_error(code, &body, "Gemini"));
+                return Err(http_error(code, &redact(&body, api_key), "Gemini"));
             }
             Err(e) => {
                 if attempt < max_retries {
@@ -122,15 +148,29 @@ fn post_with_retry(
                     delay = (delay * 2).min(max_retry_delay);
                     continue;
                 }
-                return Err(Error::Inference(format!("Gemini request failed: {e}")));
+                return Err(Error::Inference(format!(
+                    "Gemini request failed: {}",
+                    redact(&e.to_string(), api_key)
+                )));
             }
         }
     }
     Err(Error::Inference("Gemini retries exhausted.".into()))
 }
 
+/// Defense in depth: never echo the API key back in an error message.
+fn redact(message: &str, api_key: &str) -> String {
+    if api_key.is_empty() {
+        return message.to_string();
+    }
+    message.replace(api_key, "[REDACTED]")
+}
+
 pub(crate) fn extract_gemini_text(body: &Value) -> Result<String, Error> {
-    if let Some(reason) = body.pointer("/promptFeedback/blockReason").and_then(Value::as_str) {
+    if let Some(reason) = body
+        .pointer("/promptFeedback/blockReason")
+        .and_then(Value::as_str)
+    {
         return Err(Error::Inference(format!(
             "Gemini blocked the prompt ({reason})."
         )));
@@ -173,6 +213,81 @@ mod tests {
     #[test]
     fn blocked_prompt() {
         let v = json!({"promptFeedback": {"blockReason": "SAFETY"}});
-        assert!(extract_gemini_text(&v).unwrap_err().to_string().contains("SAFETY"));
+        assert!(extract_gemini_text(&v)
+            .unwrap_err()
+            .to_string()
+            .contains("SAFETY"));
+    }
+
+    #[test]
+    fn api_key_sent_as_header_not_in_url() {
+        let (base, server) = crate::test_server::serve_once(
+            200,
+            r#"{"candidates":[{"content":{"parts":[{"text":"{\"extractions\":[]}"}]}}]}"#,
+        );
+        let mut m = GeminiLanguageModel::new(
+            "gemini-2.5-flash",
+            Some("SECRET_KEY_123".into()),
+            FormatType::Json,
+            0.0,
+            5,
+            1,
+        )
+        .unwrap()
+        .with_endpoint(base);
+        let out = m.infer(&["hi".into()]).unwrap();
+        assert!(out[0][0].output.as_ref().unwrap().contains("extractions"));
+        let request = server.join().unwrap();
+        let request_line = request.lines().next().unwrap();
+        assert!(!request_line.contains("SECRET_KEY_123"), "{request_line}");
+        assert!(!request_line.contains("key="), "{request_line}");
+        assert!(request
+            .to_ascii_lowercase()
+            .contains("x-goog-api-key: secret_key_123"));
+    }
+
+    #[test]
+    fn api_key_not_in_transport_error() {
+        // Nothing listens on this port, so the request fails at transport level.
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let mut m = GeminiLanguageModel::new(
+            "gemini-2.5-flash",
+            Some("SECRET_KEY_123".into()),
+            FormatType::Json,
+            0.0,
+            2,
+            1,
+        )
+        .unwrap()
+        .with_endpoint(format!("http://127.0.0.1:{port}"))
+        .with_retries(0, Duration::from_millis(1));
+        let err = m.infer(&["hi".into()]).unwrap_err().to_string();
+        assert!(err.contains("Gemini request failed"), "{err}");
+        assert!(!err.contains("SECRET_KEY_123"), "{err}");
+    }
+
+    #[test]
+    fn api_key_redacted_from_http_error_body() {
+        let (base, server) =
+            crate::test_server::serve_once(400, r#"{"error":"bad key SECRET_KEY_123"}"#);
+        let mut m = GeminiLanguageModel::new(
+            "gemini-2.5-flash",
+            Some("SECRET_KEY_123".into()),
+            FormatType::Json,
+            0.0,
+            5,
+            1,
+        )
+        .unwrap()
+        .with_endpoint(base);
+        let err = m.infer(&["hi".into()]).unwrap_err().to_string();
+        server.join().unwrap();
+        assert!(err.contains("HTTP 400"), "{err}");
+        assert!(!err.contains("SECRET_KEY_123"), "{err}");
+        assert!(err.contains("[REDACTED]"), "{err}");
     }
 }

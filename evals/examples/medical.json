@@ -1,0 +1,21 @@
+{
+  "prompt": "Extract medications, their dosage and their frequency, in order of appearance. Use the exact text from the source. Do not paraphrase.",
+  "examples": [
+    {
+      "text": "Start omeprazole 20 mg once daily before breakfast.",
+      "extractions": [
+        {"extraction_class": "medication", "extraction_text": "omeprazole"},
+        {"extraction_class": "dosage", "extraction_text": "20 mg"},
+        {"extraction_class": "frequency", "extraction_text": "once daily"}
+      ]
+    },
+    {
+      "text": "Tomar losartán 50 mg cada 24 horas.",
+      "extractions": [
+        {"extraction_class": "medication", "extraction_text": "losartán"},
+        {"extraction_class": "dosage", "extraction_text": "50 mg"},
+        {"extraction_class": "frequency", "extraction_text": "cada 24 horas"}
+      ]
+    }
+  ]
+}
